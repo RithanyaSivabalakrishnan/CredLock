@@ -1,12 +1,21 @@
 console.log("SecureVault Background Running");
 
-// Listen for messages (like system calls)
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    
-    console.log("Message received in background:");
+
+    console.log("Message received:");
     console.log(message);
 
-    if (message.type === "CONTENT_LOADED") {
-        console.log("Page loaded:", message.url);
+    if (message.type === "PASSWORD_INPUT") {
+
+        console.log("Typing length:", message.length);
+        console.log("Trust Score:", message.trustScore);
+
+        if (message.suspicious) {
+            console.log("🚨 Suspicious behavior detected!");
+        }
+
+        if (message.trustScore < 60) {
+            console.log("⚠️ LOW TRUST USER");
+        }
     }
 });
