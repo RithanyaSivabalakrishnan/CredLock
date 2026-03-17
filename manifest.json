@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "SecureVault",
+  "version": "1.0",
+  "description": "Trusted input protection layer",
+
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+
+  "host_permissions": [
+    "<all_urls>"
+  ],
+
+  "background": {
+    "service_worker": "core/background.js"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["extension/content/content.js"]
+    }
+  ]
+}
