@@ -6,6 +6,10 @@
   <meta http-equiv="Content-Security-Policy"
         content="script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; style-src 'self' 'unsafe-inline';" />
   <title>SecureVault</title>
+  <!--
+    CSS path: co-located in src/vault/ui/ when loading from source tree.
+    build.mjs rewrites this to "vault_container.css" for the dist copy.
+  -->
   <link rel="stylesheet" href="vault_container.css" />
 </head>
 <body>
@@ -20,18 +24,18 @@
         <span class="sv-logo-text">SecureVault</span>
       </div>
       <div class="sv-header-actions">
-        <button id="sv-lock-btn" title="Lock vault" class="sv-icon-btn">🔒</button>
-        <button id="sv-settings-btn" title="Settings" class="sv-icon-btn">⚙</button>
+        <button id="sv-lock-btn"     title="Lock vault" class="sv-icon-btn">🔒</button>
+        <button id="sv-settings-btn" title="Settings"   class="sv-icon-btn">⚙</button>
       </div>
     </header>
 
     <!-- Status bar -->
     <div id="sv-status-bar">
-      <span id="sv-status-dot" class="dot-locked"></span>
+      <span id="sv-status-dot"  class="dot-locked"></span>
       <span id="sv-status-text">Vault Locked</span>
     </div>
 
-    <!-- ── Views (only one visible at a time) ────────────────────────── -->
+    <!-- ── Views (only one active at a time) ─────────────────────────── -->
 
     <!-- Unlock screen -->
     <section id="sv-view-unlock" class="sv-view active">
@@ -40,7 +44,7 @@
         <h2>Unlock Your Vault</h2>
         <p>Authenticate to access your saved payment profiles.</p>
       </div>
-      <button id="sv-google-unlock-btn" class="sv-btn sv-btn-primary">
+      <button id="sv-google-unlock-btn"    class="sv-btn sv-btn-primary">
         <span>Sign in with Google</span>
       </button>
       <button id="sv-biometric-unlock-btn" class="sv-btn sv-btn-secondary">
@@ -52,20 +56,19 @@
     <section id="sv-view-main" class="sv-view">
       <div class="sv-section-label">Payment Profiles</div>
       <ul id="sv-profile-list" class="sv-profile-list">
-        <!-- Populated by vault_ui_binding.js -->
+        <!-- Populated by vault_ui_binding.bindCardsToUI() -->
       </ul>
       <button id="sv-add-profile-btn" class="sv-btn sv-btn-ghost">+ Add Card</button>
 
       <div class="sv-divider"></div>
 
-      <!-- Virtual pad trigger -->
       <div class="sv-section-label">Enter CVV / OTP</div>
       <div id="sv-virtual-pad-mount"></div>
 
       <div class="sv-divider"></div>
 
-      <button id="sv-autofill-btn" class="sv-btn sv-btn-primary">
-        🔐 Autofill & Pay
+      <button id="sv-autofill-btn" class="sv-btn sv-btn-primary" disabled>
+        🔐 Autofill &amp; Pay
       </button>
     </section>
 
@@ -77,42 +80,72 @@
       </div>
 
       <div class="sv-form-group">
-        <label>Cardholder Name</label>
-        <div id="sv-field-name" class="sv-virtual-field" data-field="name"
-             role="textbox" tabindex="0" aria-label="Cardholder name"></div>
+        <label for="sv-field-name">Cardholder Name</label>
+        <div id="sv-field-name"
+             class="sv-virtual-field"
+             data-field="name"
+             role="textbox"
+             tabindex="0"
+             aria-label="Cardholder name"></div>
       </div>
+
       <div class="sv-form-group">
-        <label>Card Number</label>
-        <div id="sv-field-number" class="sv-virtual-field" data-field="number"
-             role="textbox" tabindex="0" aria-label="Card number"></div>
+        <label for="sv-field-number">Card Number</label>
+        <div id="sv-field-number"
+             class="sv-virtual-field"
+             data-field="number"
+             role="textbox"
+             tabindex="0"
+             aria-label="Card number"></div>
       </div>
+
       <div class="sv-form-row">
         <div class="sv-form-group">
-          <label>Expiry</label>
-          <div id="sv-field-expiry" class="sv-virtual-field" data-field="expiry"
-               role="textbox" tabindex="0" aria-label="Expiry date"></div>
+          <label for="sv-field-expiry">Expiry</label>
+          <div id="sv-field-expiry"
+               class="sv-virtual-field"
+               data-field="expiry"
+               role="textbox"
+               tabindex="0"
+               aria-label="Expiry date (MM/YY)"></div>
         </div>
         <div class="sv-form-group">
-          <label>CVV</label>
-          <div id="sv-field-cvv" class="sv-virtual-field sv-cvv-field" data-field="cvv"
-               role="textbox" tabindex="0" aria-label="CVV"></div>
+          <label for="sv-field-cvv">CVV</label>
+          <div id="sv-field-cvv"
+               class="sv-virtual-field sv-cvv-field"
+               data-field="cvv"
+               role="textbox"
+               tabindex="0"
+               aria-label="CVV"></div>
         </div>
       </div>
 
-      <!-- Virtual pad for CVV entry -->
+      <!-- Virtual pad for CVV entry only — rendered by VirtualPadView -->
       <div id="sv-cvv-pad-mount"></div>
 
-      <button id="sv-save-card-btn" class="sv-btn sv-btn-primary">Save Encrypted</button>
+      <button id="sv-save-card-btn" class="sv-btn sv-btn-primary">
+        Save Encrypted
+      </button>
     </section>
 
-    <!-- Shadow DOM vault mount point -->
-    <div id="sv-shadow-host"></div>
+    <!-- Shadow DOM vault mount point (closed mode — attached by popup_ui.js / side_panel_ui.js) -->
+    <div id="sv-shadow-host" aria-hidden="true"></div>
 
-    <!-- UI noise / obfuscation layer (invisible) -->
-    <canvas id="sv-noise-canvas" aria-hidden="true"></canvas>
+    <!-- UI noise / obfuscation canvas (off-screen, invisible) -->
+    <canvas id="sv-noise-canvas" width="1" height="1" aria-hidden="true"></canvas>
 
   </div><!-- /#sv-shell -->
 
-  <script type="module" src="../vault.js"></script>
+  <!--
+    Script path:
+      Source tree:  ../../dist/vault.js  (src/vault/ui/ → root → dist/)
+      dist/ui/ copy: ../vault.js         (rewritten by build.mjs)
+
+    popup_ui.js and side_panel_ui.js are the real entry points.
+    vault.js is the esbuild bundle of vault_container.js which boots the UI.
+    When loading from the source tree during development, esbuild must have
+    been run at least once to produce dist/vault.js.
+  -->
+  <script type="module" src="../../dist/vault.js"></script>
 </body>
 </html>
