@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+        content="script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; style-src 'self' 'unsafe-inline';" />
+  <title>SecureVault</title>
+  <link rel="stylesheet" href="vault_container.css" />
+</head>
+<body>
+
+  <!-- ── Shell ─────────────────────────────────────────────────────────── -->
+  <div id="sv-shell">
+
+    <!-- Header -->
+    <header id="sv-header">
+      <div class="sv-logo">
+        <span class="sv-logo-icon">⬡</span>
+        <span class="sv-logo-text">SecureVault</span>
+      </div>
+      <div class="sv-header-actions">
+        <button id="sv-lock-btn" title="Lock vault" class="sv-icon-btn">🔒</button>
+        <button id="sv-settings-btn" title="Settings" class="sv-icon-btn">⚙</button>
+      </div>
+    </header>
+
+    <!-- Status bar -->
+    <div id="sv-status-bar">
+      <span id="sv-status-dot" class="dot-locked"></span>
+      <span id="sv-status-text">Vault Locked</span>
+    </div>
+
+    <!-- ── Views (only one visible at a time) ────────────────────────── -->
+
+    <!-- Unlock screen -->
+    <section id="sv-view-unlock" class="sv-view active">
+      <div class="sv-unlock-hero">
+        <div class="sv-shield">⬡</div>
+        <h2>Unlock Your Vault</h2>
+        <p>Authenticate to access your saved payment profiles.</p>
+      </div>
+      <button id="sv-google-unlock-btn" class="sv-btn sv-btn-primary">
+        <span>Sign in with Google</span>
+      </button>
+      <button id="sv-biometric-unlock-btn" class="sv-btn sv-btn-secondary">
+        <span>Use Device Biometric</span>
+      </button>
+    </section>
+
+    <!-- Main vault dashboard -->
+    <section id="sv-view-main" class="sv-view">
+      <div class="sv-section-label">Payment Profiles</div>
+      <ul id="sv-profile-list" class="sv-profile-list">
+        <!-- Populated by vault_ui_binding.js -->
+      </ul>
+      <button id="sv-add-profile-btn" class="sv-btn sv-btn-ghost">+ Add Card</button>
+
+      <div class="sv-divider"></div>
+
+      <!-- Virtual pad trigger -->
+      <div class="sv-section-label">Enter CVV / OTP</div>
+      <div id="sv-virtual-pad-mount"></div>
+
+      <div class="sv-divider"></div>
+
+      <button id="sv-autofill-btn" class="sv-btn sv-btn-primary">
+        🔐 Autofill & Pay
+      </button>
+    </section>
+
+    <!-- Add / edit card form -->
+    <section id="sv-view-add-card" class="sv-view">
+      <div class="sv-back-row">
+        <button id="sv-back-btn" class="sv-icon-btn">← Back</button>
+        <span class="sv-section-label">New Card</span>
+      </div>
+
+      <div class="sv-form-group">
+        <label>Cardholder Name</label>
+        <div id="sv-field-name" class="sv-virtual-field" data-field="name"
+             role="textbox" tabindex="0" aria-label="Cardholder name"></div>
+      </div>
+      <div class="sv-form-group">
+        <label>Card Number</label>
+        <div id="sv-field-number" class="sv-virtual-field" data-field="number"
+             role="textbox" tabindex="0" aria-label="Card number"></div>
+      </div>
+      <div class="sv-form-row">
+        <div class="sv-form-group">
+          <label>Expiry</label>
+          <div id="sv-field-expiry" class="sv-virtual-field" data-field="expiry"
+               role="textbox" tabindex="0" aria-label="Expiry date"></div>
+        </div>
+        <div class="sv-form-group">
+          <label>CVV</label>
+          <div id="sv-field-cvv" class="sv-virtual-field sv-cvv-field" data-field="cvv"
+               role="textbox" tabindex="0" aria-label="CVV"></div>
+        </div>
+      </div>
+
+      <!-- Virtual pad for CVV entry -->
+      <div id="sv-cvv-pad-mount"></div>
+
+      <button id="sv-save-card-btn" class="sv-btn sv-btn-primary">Save Encrypted</button>
+    </section>
+
+    <!-- Shadow DOM vault mount point -->
+    <div id="sv-shadow-host"></div>
+
+    <!-- UI noise / obfuscation layer (invisible) -->
+    <canvas id="sv-noise-canvas" aria-hidden="true"></canvas>
+
+  </div><!-- /#sv-shell -->
+
+  <script type="module" src="../../../dist/vault.js"></script>
+</body>
+</html>
