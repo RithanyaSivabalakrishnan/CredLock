@@ -1,3 +1,4 @@
+import { jest, describe, test, expect, beforeEach, afterEach, it } from "@jest/globals";
 /**
  * vault_model.test.js
  * Unit tests for VaultModel.

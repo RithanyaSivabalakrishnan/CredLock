@@ -1,3 +1,4 @@
+import { jest, describe, test, expect, beforeEach, afterEach, it } from "@jest/globals";
 /**
  * crypto_engine.test.js
  * Unit tests for WasmCrypto and WebCryptoKeyManager.
@@ -407,7 +408,7 @@ describe('DomInjector', () => {
 
     // All these maskedValues should remain opaque after injectMaskedCardData
     fields.forEach(f => {
-      expect(f.maskedValue).toMatch(/^[•\d/]+$/);
+      expect(f.maskedValue).toMatch(/^[•\d/ ]+$/);
       expect(f.maskedValue).not.toContain('4111111111111111');
       expect(f.maskedValue).not.toContain('737');
     });

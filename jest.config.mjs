@@ -4,7 +4,7 @@
 export default {
   testEnvironment:    'node',
   transform:          {},           // ESM — no transform needed with Node 18+
-  extensionsToTreatAsEsm: ['.js'],
+  
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },

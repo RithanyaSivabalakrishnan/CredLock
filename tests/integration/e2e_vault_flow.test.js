@@ -1,3 +1,4 @@
+import { jest, describe, test, expect, beforeEach, afterEach, it } from "@jest/globals";
 /**
  * e2e_vault_flow.test.js
  * Integration tests — full vault lifecycle using mocked Chrome APIs.
@@ -576,7 +577,10 @@ describe('Phase 18: VaultLockFlow.scheduleAutoLock', () => {
     lockFlow.scheduleAutoLock(500, () => { fired = true; });
 
     jest.advanceTimersByTime(600);
-    await Promise.resolve(); // flush async lock()
+    // Flush multiple microtask queues for async lock()
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
 
     expect(fired).toBe(true);
     expect(await model.isLocked()).toBe(true);

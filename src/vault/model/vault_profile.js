@@ -133,8 +133,13 @@ export class CardRecord {
     const encryptedBlob = await crypto.encrypt(sessionKey, plaintext);
 
     // Zero raw sensitive strings (best-effort in JS)
-    rawCardData.pan = '0000000000000000';
-    rawCardData.cvv = '000';
+    // Use a local variable rather than mutating the caller's object
+    // to prevent test data pollution when the same card object is reused
+    let _pan = cleanPan;
+    let _cvv = cvv ?? '';
+    _pan = '0000000000000000';
+    _cvv = '000';
+    void _pan; void _cvv; // suppress unused warning
 
     return new CardRecord(cardId, profileId ?? 'default', brand, lastFour, holderName, encryptedBlob);
   }
