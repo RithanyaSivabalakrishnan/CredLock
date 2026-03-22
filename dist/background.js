@@ -155,7 +155,7 @@ function detectBrand(pan) {
 
 // ── Auto-lock ────────────────────────────────────────────────────────────────
 
-const AUTO_LOCK_MS = 5 * 60 * 1000;
+const AUTO_LOCK_MS = 30 * 60 * 1000; // 30 minutes
 let autoLockTimer  = null;
 
 function resetAutoLock() {
@@ -165,6 +165,12 @@ function resetAutoLock() {
     broadcastToTabs({ type: 'VAULT_LOCKED' });
   }, AUTO_LOCK_MS);
 }
+
+// Keep-alive ping — prevents Chrome from killing the service worker
+// while the user is actively using the extension
+setInterval(() => {
+  if (isUnlocked()) resetAutoLock();
+}, 20000);
 
 // ── Tab broadcast ────────────────────────────────────────────────────────────
 

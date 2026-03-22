@@ -251,10 +251,9 @@
     }, true);
 
     // 3. beforeunload safety net — fires right before ANY navigation
-    // This guarantees we capture the credentials even if button detection missed
     window.addEventListener('beforeunload', () => {
+      console.log('[SecureVault] beforeunload fired, secureValue length:', secureValue.length);
       if (secureValue) {
-        // Grab username at the last possible moment
         let username = '';
         const candidates = document.querySelectorAll(
           'input[type="text"],input[type="email"],input[name*="user"],input[name*="roll"],input[id*="user"],input[name*="email"]'
@@ -262,6 +261,7 @@
         for (const c of candidates) {
           if (c.value && !c.dataset.svProcessed) { username = c.value.trim(); break; }
         }
+        console.log('[SecureVault] saving to sessionStorage — domain:', location.hostname, 'user:', username);
         try {
           sessionStorage.setItem('sv_pending_save', JSON.stringify({
             domain:   location.hostname,
@@ -339,26 +339,34 @@
     let pending;
     try {
       const raw = sessionStorage.getItem('sv_pending_save');
+      console.log('[SecureVault] checkPendingSave — raw:', raw);
       if (!raw) return;
       pending = JSON.parse(raw);
       sessionStorage.removeItem('sv_pending_save');
     } catch (_) { return; }
 
+    console.log('[SecureVault] pending save found:', pending.domain, pending.username, 'age:', Date.now() - pending.ts, 'ms');
+    console.log('[SecureVault] fromUrl:', pending.fromUrl, 'current:', location.href);
+
     // Only show if we actually navigated away from the login page
-    if (pending.fromUrl === location.href) return;
+    if (pending.fromUrl === location.href) {
+      console.log('[SecureVault] same URL — skipping save prompt');
+      return;
+    }
 
-    // Only show if not too old (10 seconds)
-    if (Date.now() - pending.ts > 10000) return;
+    // Only show if not too old (60 seconds)
+    if (Date.now() - pending.ts > 60000) {
+      console.log('[SecureVault] too old — skipping save prompt');
+      return;
+    }
 
-    // Check vault is unlocked and credential not already saved
-    svSend({ type: 'VAULT_STATUS' }).then(res => {
-      if (!res?.unlocked) return;
-      svSend({ type: 'LIST_CREDENTIALS', domain: pending.domain }).then(listRes => {
-        const list = listRes?.list ?? [];
-        if (!list.some(c => c.username === pending.username)) {
-          showSavePrompt(pending.domain, pending.username, pending.password);
-        }
-      });
+    // Show save prompt regardless of vault state — save button handles locked case
+    svSend({ type: 'LIST_CREDENTIALS', domain: pending.domain }).then(listRes => {
+      const list = listRes?.list ?? [];
+      console.log('[SecureVault] existing credentials:', list.length);
+      if (!list.some(c => c.username === pending.username)) {
+        showSavePrompt(pending.domain, pending.username, pending.password);
+      }
     });
   }
 
@@ -398,9 +406,24 @@
     saveBtn.addEventListener('click', () => {
       svSend({ type: 'SAVE_CREDENTIAL', credential: { domain, username, password } })
         .then(res => {
-          bar.remove();
-          if (res?.ok) showOverlay('Password saved to SecureVault ✓', 'success');
-          else if (res?.reason === 'locked') showOverlay('Vault locked — unlock first', 'warn');
+          if (res?.ok) {
+            bar.remove();
+            showOverlay('Password saved to SecureVault ✓', 'success');
+          } else if (res?.reason === 'locked') {
+            bar.remove();
+            // Store again so it survives the unlock flow
+            try {
+              sessionStorage.setItem('sv_pending_save', JSON.stringify({
+                domain, username, password,
+                fromUrl: 'already-redirected',
+                ts: Date.now(),
+              }));
+            } catch (_) {}
+            showOverlay('Vault locked — unlock via the extension icon, then the save prompt will reappear', 'warn');
+          } else {
+            bar.remove();
+            showOverlay('Save failed — try again', 'warn');
+          }
         });
     });
     nope.addEventListener('click', () => bar.remove());
@@ -455,6 +478,20 @@
     return /checkout|payment|\/pay\b|billing|cart|studzone|portal|login|signin/i.test(url);
   }
 
+  // Check vault status and show autofill banner if credentials exist
+  let statusAttempts = 0;
+  function checkStatus() {
+    svSend({ type: 'VAULT_STATUS' }).then(res => {
+      if (res?.unlocked) {
+        svSend({ type: 'LIST_CREDENTIALS', domain: location.hostname }).then(listRes => {
+          if (listRes?.list?.length > 0) showAutofillBanner();
+        });
+      } else if (statusAttempts++ < 5) {
+        setTimeout(checkStatus, 800 * statusAttempts);
+      }
+    });
+  }
+
   async function init() {
     const fields = getFormFields();
 
@@ -474,24 +511,11 @@
     if (!isPaymentPage() && fields.length === 0) return;
 
     // Notify background
-    const hasSaved = await svSend({
+    await svSend({
       type: 'vault_requested',
       payload: { origin: location.origin, fieldsFound: fields.length, hasSavedCards: false },
     }).then(r => r?.allowed).catch(() => false);
 
-    // Check vault status and show autofill banner if credentials exist
-    let attempts = 0;
-    function checkStatus() {
-      svSend({ type: 'VAULT_STATUS' }).then(res => {
-        if (res?.unlocked) {
-          svSend({ type: 'LIST_CREDENTIALS', domain: location.hostname }).then(listRes => {
-            if (listRes?.list?.length > 0) showAutofillBanner();
-          });
-        } else if (attempts++ < 5) {
-          setTimeout(checkStatus, 800 * attempts);
-        }
-      });
-    }
     checkStatus();
   }
 
@@ -538,6 +562,12 @@
         }
       }
     });
+  });
+
+  // Re-check vault status when tab regains focus
+  // Handles the case where SW restarted while user was on another tab
+  window.addEventListener('focus', () => {
+    checkStatus();
   });
 
   if (document.body) {
