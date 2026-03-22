@@ -91,6 +91,38 @@ function isUnlocked() { return _sessionKey !== null; }
 async function unlockVault(token) {
   _sessionKey = await deriveKeyFromToken(token);
   console.log('[SecureVault] Vault unlocked');
+
+  // Auto-save any credential that was pending when vault was locked
+  try {
+    const stored = await chrome.storage.local.get('sv_pending_credential');
+    const pending = stored['sv_pending_credential'];
+    if (pending) {
+      await chrome.storage.local.remove('sv_pending_credential');
+      const { domain, username, password } = pending;
+      const raw   = { password };
+      const enc   = await svEncrypt(JSON.stringify(raw));
+      const cards = await loadCards();
+      const alreadySaved = cards.some(c =>
+        extractHostname(c.domain ?? '') === extractHostname(domain) &&
+        c.holderName === username
+      );
+      if (!alreadySaved) {
+        cards.push({
+          id: crypto.randomUUID(), profileId: 'default',
+          brand: 'Login', lastFour: '----',
+          holderName: username,
+          domain,
+          encryptedB64: enc, _raw: raw,
+        });
+        await saveCards(cards);
+        // Notify all tabs that the pending save completed
+        broadcastToTabs({ type: 'SV_SAVE_COMPLETE', domain });
+        console.log('[SecureVault] Auto-saved pending credential for', domain);
+      }
+    }
+  } catch (err) {
+    console.warn('[SecureVault] Auto-save failed:', err.message);
+  }
 }
 
 function lockVault() {
@@ -138,7 +170,8 @@ async function saveCards(cards) {
     storables.push({
       id: c.id, profileId: c.profileId ?? 'default',
       brand: c.brand, lastFour: c.lastFour,
-      holderName: c.holderName, encryptedB64: enc,
+      holderName: c.holderName, domain: c.domain ?? '',
+      encryptedB64: enc,
     });
   }
   await chrome.storage.local.set({ [VAULT_KEY]: storables });
@@ -231,9 +264,21 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
         // ── Credentials ───────────────────────────────────────────────────
         case 'SAVE_CREDENTIAL': {
-          if (!isUnlocked()) { sendResponse({ ok: false, reason: 'locked' }); break; }
-          resetAutoLock();
           const { domain, username, password, pan, expiry, cvv, holderName } = msg.credential ?? msg;
+          if (!isUnlocked()) {
+            // Vault locked — store credential persistently so it auto-saves on next unlock
+            await chrome.storage.local.set({
+              sv_pending_credential: {
+                domain: domain ?? extractHostname(sender.tab?.url ?? ''),
+                username: holderName ?? username ?? '',
+                password,
+                ts: Date.now(),
+              }
+            });
+            sendResponse({ ok: false, reason: 'locked', pending: true });
+            break;
+          }
+          resetAutoLock();
           const cards = await loadCards();
           const id    = crypto.randomUUID();
           const raw   = password
@@ -293,9 +338,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           resetAutoLock();
           const domain = extractHostname(sender.tab?.url ?? '');
           const all    = await loadCards();
-          const match  = all.find(c => extractHostname(c.domain ?? '') === domain);
+          // If a specific credId was requested, use that; otherwise use first match
+          const match  = msg.credId
+            ? all.find(c => c.id === msg.credId)
+            : all.find(c => extractHostname(c.domain ?? '') === domain);
           if (!match) { sendResponse({ ok: false, reason: 'no_credentials' }); break; }
-          // Return masked tokens for card autofill, or password for login autofill
           if (match._raw.password) {
             sendResponse({ ok: true, credential: {
               password: match._raw.password,
@@ -353,9 +400,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           sendResponse({ ok: true });
           break;
 
-        case 'CRYPTO_BACKEND':
-          sendResponse({ ok: true, backend: 'webcrypto' });
+        case 'CRYPTO_BACKEND': {
+          try {
+            const wasmUrl = chrome.runtime.getURL('src/wasm/crypto_engine.wasm');
+            const probe   = await fetch(wasmUrl, { method: 'HEAD' });
+            sendResponse({ ok: true, backend: probe.ok ? 'wasm' : 'webcrypto' });
+          } catch (_) {
+            sendResponse({ ok: true, backend: 'webcrypto' });
+          }
           break;
+        }
 
         default:
           sendResponse({ ok: false, reason: 'unknown_message_type' });

@@ -164,16 +164,49 @@ export class VaultUiBinding {
 
     info.appendChild(name);
     info.appendChild(mask);
+
+    // Delete button
+    const delBtn = document.createElement('button');
+    delBtn.textContent = '×';
+    delBtn.title = 'Delete';
+    delBtn.setAttribute('type', 'button');
+    delBtn.style.cssText = [
+      'background:transparent', 'border:none', 'color:var(--danger,#ef5350)',
+      'cursor:pointer', 'font-size:18px', 'line-height:1',
+      'padding:0 4px', 'margin-left:auto', 'flex-shrink:0',
+      'opacity:0.6',
+    ].join(';');
+    delBtn.addEventListener('mouseenter', () => delBtn.style.opacity = '1');
+    delBtn.addEventListener('mouseleave', () => delBtn.style.opacity = '0.6');
+
+    delBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      li.style.opacity = '0.4';
+      try {
+        await chrome.runtime.sendMessage({ type: 'DELETE_CREDENTIAL', id: card.id });
+      } catch (_) {}
+      li.remove();
+      // Re-check if list is now empty
+      if (!listEl.querySelector('.sv-profile-item')) {
+        const empty = document.createElement('li');
+        empty.style.cssText = 'color:var(--text-dim);font-size:11px;text-align:center;padding:16px;';
+        empty.textContent   = 'No saved cards. Add one below.';
+        listEl.appendChild(empty);
+      }
+      if (autofillBtn) autofillBtn.disabled = true;
+    });
+
+    li.style.display = 'flex';
+    li.style.alignItems = 'center';
     li.appendChild(brand);
     li.appendChild(info);
+    li.appendChild(delBtn);
 
     li.addEventListener('click', () => {
       listEl.querySelectorAll('.sv-profile-item')
         .forEach(el => el.classList.remove('selected'));
       li.classList.add('selected');
-
       this.setSelectedCard(card.id);
-
       if (autofillBtn) autofillBtn.disabled = false;
     });
 

@@ -9,15 +9,12 @@ import { AuthChromeIdentity } from './auth_chrome_identity.js';
 export class VaultUnlockFlow {
   #model;
   #googleAuth = new AuthChromeIdentity();
+  #lastToken  = null;
 
   constructor(model) {
     this.#model = model;
   }
 
-  /**
-   * Unlocks the vault using a Google OAuth token.
-   * @returns {Promise<boolean>}
-   */
   async unlockWithGoogle() {
     try {
       const token = await this.#googleAuth.getAuthToken(true);
@@ -25,6 +22,7 @@ export class VaultUnlockFlow {
         console.warn('[UnlockFlow] Google auth cancelled or failed');
         return false;
       }
+      this.#lastToken = token;
       await this.#model.unlock(token);
       await this.#postUnlock();
       console.log('[UnlockFlow] Unlocked via Google Identity');
@@ -35,7 +33,6 @@ export class VaultUnlockFlow {
     }
   }
 
-  /** Primary entry point — Google only. */
   async unlock() {
     return this.unlockWithGoogle();
   }
@@ -47,10 +44,13 @@ export class VaultUnlockFlow {
       this.#model.selectedCardId = cards[0].id;
     }
     try {
+      // Send VAULT_UNLOCK with token so background can derive its session key
+      // and auto-save any pending credentials
       await chrome.runtime.sendMessage({
-        type:    'vault_unlocked',
-        payload: { autofillEnabled: cards.length > 0, cardCount: cards.length },
+        type:  'VAULT_UNLOCK',
+        token: this.#lastToken,
       });
     } catch { /* service worker inactive — fine */ }
   }
 }
+

@@ -169,16 +169,29 @@ document.getElementById('sv-save-card-btn')
 
 // ── Boot ──────────────────────────────────────────────────────────────────
 
+async function updateBackendBadge() {
+  const badge = document.getElementById('sv-backend-badge');
+  if (!badge) return;
+  try {
+    const wasmUrl = chrome.runtime.getURL('src/wasm/crypto_engine.wasm');
+    const probe   = await fetch(wasmUrl, { method: 'HEAD' });
+    if (probe.ok) {
+      badge.textContent = 'C/WASM';
+      badge.classList.add('wasm');
+    }
+  } catch (_) {}
+}
+
 async function boot() {
   noiseLayer.start();
   padViewMain.render();
+  updateBackendBadge();
 
   const locked = await model.isLocked();
   setStatus(locked);
   showView(locked ? 'unlock' : 'main');
 
   if (!locked) {
-    // Vault was already unlocked (e.g. popup reopened) — load cards immediately
     await uiBinding.bindCardsToUI(
       document.getElementById('sv-profile-list'),
       document.getElementById('sv-autofill-btn')

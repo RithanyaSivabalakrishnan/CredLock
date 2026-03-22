@@ -409,17 +409,9 @@
           if (res?.ok) {
             bar.remove();
             showOverlay('Password saved to SecureVault ✓', 'success');
-          } else if (res?.reason === 'locked') {
+          } else if (res?.reason === 'locked' && res?.pending) {
             bar.remove();
-            // Store again so it survives the unlock flow
-            try {
-              sessionStorage.setItem('sv_pending_save', JSON.stringify({
-                domain, username, password,
-                fromUrl: 'already-redirected',
-                ts: Date.now(),
-              }));
-            } catch (_) {}
-            showOverlay('Vault locked — unlock via the extension icon, then the save prompt will reappear', 'warn');
+            showOverlay('Vault locked — unlock via extension icon and it will save automatically ✓', 'warn');
           } else {
             bar.remove();
             showOverlay('Save failed — try again', 'warn');
@@ -432,7 +424,7 @@
 
   // ── Autofill banner ────────────────────────────────────────────────────────
 
-  function showAutofillBanner() {
+  function showAutofillBanner(credentials = []) {
     if (document.getElementById('sv-autofill-banner')) return;
     const banner = document.createElement('div');
     banner.id = 'sv-autofill-banner';
@@ -441,34 +433,70 @@
       background:'#0b0e14', border:'2px solid #00e676', color:'#e8f0fe',
       padding:'12px 16px', borderRadius:'10px', zIndex:'2147483646',
       fontSize:'13px', fontFamily:'monospace',
-      display:'flex', gap:'10px', alignItems:'center',
-      boxShadow:'0 4px 16px rgba(0,0,0,0.5)',
+      display:'flex', flexDirection:'column', gap:'8px',
+      boxShadow:'0 4px 16px rgba(0,0,0,0.5)', maxWidth:'280px',
     });
-    banner.innerHTML = `<span>⬡ <strong>SecureVault</strong> — saved credentials found</span>` +
-      `<button id="sv-autofill-btn" style="background:#00e676;border:none;color:#0b0e14;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;">Autofill</button>` +
-      `<button id="sv-autofill-close" style="background:transparent;border:none;color:#00e676;cursor:pointer;font-size:18px;padding:0 4px;">×</button>`;
-    document.body.appendChild(banner);
 
-    document.getElementById('sv-autofill-btn').addEventListener('click', () => {
-      svSend({ type: 'AUTOFILL_REQUEST' }).then(res => {
-        if (res?.ok && res?.credential) {
-          if (res.credential.tokens) {
-            // Card autofill via tokens
-            setAutofilledData(res.credential.tokens);
-            banner.remove();
-          } else {
-            // Password autofill via sv-fill event
-            document.dispatchEvent(new CustomEvent('sv-fill', {
-              detail: { password: res.credential.password, username: res.credential.username }
-            }));
-            banner.remove();
-          }
-        } else if (res?.reason === 'locked') {
-          banner.textContent = '⬡ Vault locked — open popup and unlock first.';
+    const header = document.createElement('div');
+    header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;';
+    header.innerHTML = `<span>⬡ <strong>SecureVault</strong></span>`;
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '×';
+    closeBtn.style.cssText = 'background:transparent;border:none;color:#00e676;cursor:pointer;font-size:18px;padding:0 4px;';
+    closeBtn.addEventListener('click', () => banner.remove());
+    header.appendChild(closeBtn);
+    banner.appendChild(header);
+
+    if (credentials.length === 1) {
+      // Single credential — show simple autofill button
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;gap:8px;align-items:center;';
+      row.innerHTML = `<span style="flex:1;font-size:11px;color:#8fa3bc;">${credentials[0].username}</span>`;
+      const btn = document.createElement('button');
+      btn.textContent = 'Autofill';
+      btn.style.cssText = 'background:#00e676;border:none;color:#0b0e14;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;';
+      btn.addEventListener('click', () => doAutofill(credentials[0].id, banner));
+      row.appendChild(btn);
+      banner.appendChild(row);
+    } else {
+      // Multiple credentials — show picker
+      const label = document.createElement('div');
+      label.style.cssText = 'font-size:11px;color:#8fa3bc;';
+      label.textContent = 'Choose account:';
+      banner.appendChild(label);
+
+      for (const cred of credentials) {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;gap:8px;align-items:center;';
+        row.innerHTML = `<span style="flex:1;font-size:11px;">${cred.username}</span>`;
+        const btn = document.createElement('button');
+        btn.textContent = 'Fill';
+        btn.style.cssText = 'background:#00e676;border:none;color:#0b0e14;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;flex-shrink:0;';
+        btn.addEventListener('click', () => doAutofill(cred.id, banner));
+        row.appendChild(btn);
+        banner.appendChild(row);
+      }
+    }
+
+    document.body.appendChild(banner);
+  }
+
+  function doAutofill(credId, banner) {
+    svSend({ type: 'AUTOFILL_REQUEST', credId }).then(res => {
+      if (res?.ok && res?.credential) {
+        if (res.credential.tokens) {
+          setAutofilledData(res.credential.tokens);
+        } else {
+          document.dispatchEvent(new CustomEvent('sv-fill', {
+            detail: { password: res.credential.password, username: res.credential.username }
+          }));
         }
-      });
+        banner.remove();
+      } else if (res?.reason === 'locked') {
+        banner.textContent = '⬡ Vault locked — unlock first.';
+      }
     });
-    document.getElementById('sv-autofill-close').addEventListener('click', () => banner.remove());
   }
 
   // ── Init ───────────────────────────────────────────────────────────────────
@@ -478,13 +506,33 @@
     return /checkout|payment|\/pay\b|billing|cart|studzone|portal|login|signin/i.test(url);
   }
 
-  // Check vault status and show autofill banner if credentials exist
+  // Check vault status and show autofill banner
+  // Only triggers AFTER a username has been typed
   let statusAttempts = 0;
   function checkStatus() {
+    // Must have a visible active SecureVault shadow host (password field replaced)
+    const activeShadowHost = document.querySelector('[data-sv-host]');
+    if (!activeShadowHost || activeShadowHost.offsetParent === null) return;
+
+    // Must have a username typed — don't show banner on blank page
+    const usernameField = document.querySelector(
+      'input[type="text"],input[type="email"],input[name*="user"],input[name*="roll"],input[id*="user"],input[name*="email"]'
+    );
+    const typedUsername = usernameField?.value?.trim();
+    if (!typedUsername || typedUsername.length < 2) return;
+
     svSend({ type: 'VAULT_STATUS' }).then(res => {
       if (res?.unlocked) {
         svSend({ type: 'LIST_CREDENTIALS', domain: location.hostname }).then(listRes => {
-          if (listRes?.list?.length > 0) showAutofillBanner();
+          if (!listRes?.list?.length) return;
+
+          // Filter to credentials matching the typed username
+          const candidates = listRes.list.filter(c =>
+            c.username.toLowerCase().includes(typedUsername.toLowerCase()) ||
+            typedUsername.toLowerCase().includes(c.username.toLowerCase())
+          );
+
+          if (candidates.length > 0) showAutofillBanner(candidates);
         });
       } else if (statusAttempts++ < 5) {
         setTimeout(checkStatus, 800 * statusAttempts);
@@ -510,11 +558,27 @@
 
     if (!isPaymentPage() && fields.length === 0) return;
 
-    // Notify background
     await svSend({
       type: 'vault_requested',
       payload: { origin: location.origin, fieldsFound: fields.length, hasSavedCards: false },
     }).then(r => r?.allowed).catch(() => false);
+
+    // Watch username field — re-check when user types to show matching credentials
+    const usernameField = document.querySelector(
+      'input[type="text"],input[type="email"],input[name*="user"],input[name*="roll"],input[id*="user"],input[name*="email"]'
+    );
+    if (usernameField) {
+      let debounce = null;
+      usernameField.addEventListener('input', () => {
+        clearTimeout(debounce);
+        // Remove existing banner so it refreshes with filtered results
+        document.getElementById('sv-autofill-banner')?.remove();
+        debounce = setTimeout(() => {
+          statusAttempts = 0;
+          checkStatus();
+        }, 400);
+      });
+    }
 
     checkStatus();
   }
@@ -544,10 +608,36 @@
           document.getElementById('sv-autofill-banner')?.remove();
           sendResponse({ ok: true });
           break;
+
+        case 'SV_SAVE_COMPLETE':
+          showOverlay('Password saved to SecureVault ✓', 'success');
+          sendResponse({ ok: true });
+          break;
       }
       return true;
     });
   } catch (_) {}
+
+  // ── SPA URL watcher — remove autofill banner when page navigates ────────────
+  let lastUrl = location.href;
+  const urlObserver = new MutationObserver(() => {
+    if (location.href !== lastUrl) {
+      lastUrl = location.href;
+      // URL changed — remove all SecureVault UI, it belongs to the previous page
+      document.getElementById('sv-autofill-banner')?.remove();
+      document.getElementById('sv-save-prompt')?.remove();
+      statusAttempts = 0;
+      // Remove orphaned shadow hosts from previous page
+      setTimeout(() => {
+        document.querySelectorAll('[data-sv-host]').forEach(host => {
+          // Remove if the original hidden input is gone
+          const orig = host.previousElementSibling;
+          if (!orig || !orig.dataset.svProcessed) host.remove();
+        });
+      }, 600);
+    }
+  });
+  urlObserver.observe(document.documentElement, { childList: true, subtree: true });
 
   // ── MutationObserver for SPAs ───────────────────────────────────────────────
 
