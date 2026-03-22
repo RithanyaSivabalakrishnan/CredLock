@@ -1,26 +1,79 @@
 {
   "manifest_version": 3,
   "name": "SecureVault",
-  "version": "1.0",
-  "description": "Trusted input protection layer",
+  "version": "2.0.0",
+  "description": "OS-inspired sandboxed payment vault — Shadow DOM isolation, AES-256-GCM, WASM crypto.",
 
-  "permissions": [
-    "activeTab",
-    "scripting"
-  ],
+  "icons": {
+    "16":  "assets/icons/16.png",
+    "48":  "assets/icons/48.png",
+    "128": "assets/icons/128.png"
+  },
 
-  "host_permissions": [
-    "<all_urls>"
-  ],
+  "action": {
+    "default_popup": "src/vault/ui/vault_container.html",
+    "default_icon": {
+      "16":  "assets/icons/16.png",
+      "48":  "assets/icons/48.png",
+      "128": "assets/icons/128.png"
+    },
+    "default_title": "SecureVault"
+  },
+
+  "side_panel": {
+    "default_path": "src/vault/ui/vault_container.html"
+  },
 
   "background": {
-    "service_worker": "core/background.js"
+    "service_worker": "dist/background.js"
   },
 
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["extension/content/content.js"]
+      "js": ["dist/content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
     }
-  ]
+  ],
+
+  "permissions": [
+    "storage",
+    "activeTab",
+    "identity",
+    "scripting",
+    "sidePanel",
+    "tabs"
+  ],
+
+  "host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ],
+
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;"
+  },
+
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "src/vault/ui/*.js",
+        "src/vault/ui/*.css",
+        "src/vault/model/*.js",
+        "src/vault/storage/*.js",
+        "src/vault/input/*.js",
+        "src/auth/*.js",
+        "src/crypto/*.js",
+        "src/wasm/crypto_engine.wasm",
+        "dist/vault.js"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+
+  "oauth2": {
+    "client_id": "604479240373-o9h5fm18bilhnc39316b6dd3e4chg736.apps.googleusercontent.com",
+    "scopes": ["openid", "email", "profile"]
+  }
 }
