@@ -3,31 +3,134 @@
  * Content Script — runs in the merchant page's renderer process.
  * OS analog: "user-space shim / system-call gateway"
  *
- * Detects payment / checkout pages, sends a vault_requested message to the
- * background with autofill availability context, and handles masked injection.
+ * Detects payment / checkout pages and iframes, signals the background,
+ * and handles masked injection from the vault UI.
+ *
+ * Fixes applied:
+ *  1. checkHasSavedCards() now reads sv_cards_v1 (correct storage key)
+ *  2. isPaymentPage() now includes domain-based detection for netbanking
+ *     portals that don't use /checkout/ or /payment/ in their URLs
+ *  3. isIframeContext() detects 3DS / embedded payment SDK iframes
+ *  4. URL patterns expanded to cover Amazon /gp/buy/, /ap/, Indian banks
  */
 
 import { MerchantDomAdapter } from './merchant_dom_adapter.js';
 
 const adapter = new MerchantDomAdapter();
 
-// ── Page detection ─────────────────────────────────────────────────────────
+// ── Payment page detection ─────────────────────────────────────────────────
 
+/**
+ * URL path/query patterns that indicate a checkout or payment page.
+ * Tested against the full href (path + query string).
+ */
 const PAYMENT_URL_PATTERNS = [
   /checkout/i,
   /payment/i,
-  /\/pay\b/i,
+  /\/pay[\/\?#]/i,
+  /\/pay$/i,
   /billing/i,
   /order.*confirm/i,
-  /cart/i,
+  /\/cart/i,
+  /\/buy\//i,
+  /\/purchase/i,
+  /\/gp\/buy\//i,           // Amazon: /gp/buy/addressselect/, /gp/buy/payselect/
+  /\/ap\/signin/i,          // Amazon: account/payment signin flow
+  /\/ap\/cvf/i,             // Amazon: card verification flow
+  /processTransaction/i,    // Paytm gateway
+  /theia\//i,               // Paytm Theia SDK
+  /\/transaction/i,
+  /\/secure\//i,
+  /netbanking/i,
+  /ibanking/i,
+  /onlinebanking/i,
+  /retail\/login/i,         // SBI retail banking
 ];
 
+/**
+ * Domains that are inherently payment/banking domains — the entire site
+ * is a payment context regardless of URL path.
+ * Used when URL patterns don't match (e.g. netbanking portals with
+ * opaque paths like /netbanking/ or /retail/).
+ */
+const PAYMENT_DOMAINS = new Set([
+  'securegw.paytm.in', 'securegw-stage.paytm.in',
+  'razorpay.com', 'api.razorpay.com',
+  'stripe.com', 'js.stripe.com',
+  'paypal.com', 'www.paypal.com',
+  'payu.in', 'secure.payu.in',
+  'payumoney.com', 'www.payumoney.com',
+  'ccavenue.com', 'www.ccavenue.com',
+  'billdesk.com', 'pgi.billdesk.com',
+  'cashfree.com', 'api.cashfree.com',
+  'easebuzz.in',
+  'instamojo.com',
+  'zaakpay.com',
+  'adyen.com',
+  'checkout.com',
+  'braintreegateway.com',
+  'squareup.com',
+  'klarna.com',
+  'afterpay.com',
+  'affirm.com',
+  // Indian banks (all paths are payment-relevant)
+  'netbanking.hdfcbank.com',
+  'ibanking.icicibank.com',
+  'netpay.axisbank.co.in',
+  'retail.onlinesbi.sbi',
+  'www.onlinesbi.com',
+  'netbanking.kotak.com',
+  'netbanking.yesbank.in',
+  'indusnet.indusind.com',
+  'netbanking.idfcfirstbank.com',
+  'netbanking.federalbank.co.in',
+  'rblbank.com',
+  'netbanking.canarabank.in',
+  'netbanking.unionbankofindia.co.in',
+  // 3DS / ACS domains
+  'acs.mastercard.com',
+  'verified-by-visa.com',
+  'safekey.com',
+  '3ds.websdk.amazon.dev',
+  '3dsecure.io',
+]);
+
+/**
+ * Returns true if the current page is a payment or banking context,
+ * using three detection methods in priority order:
+ *  1. Known payment domain (fastest, most reliable)
+ *  2. URL path/query pattern match
+ *  3. Presence of payment-related form fields in the DOM
+ */
 function isPaymentPage() {
+  // 1. Domain-based detection
+  const hostname = location.hostname.toLowerCase();
+  if (PAYMENT_DOMAINS.has(hostname)) return true;
+
+  // Subdomain match: e.g. secure.paytm.in, api.razorpay.com
+  for (const domain of PAYMENT_DOMAINS) {
+    if (hostname.endsWith('.' + domain) || hostname === domain) return true;
+  }
+
+  // 2. URL pattern match
   const url = location.href;
   if (PAYMENT_URL_PATTERNS.some(p => p.test(url))) return true;
 
-  // Also check for presence of payment-related form fields
+  // 3. Field presence fallback (works for SPAs that inject forms dynamically)
   return adapter.getFormFields().length > 0;
+}
+
+/**
+ * Returns true if this content script is running inside an iframe
+ * (e.g. a 3DS authentication frame, embedded Razorpay/Paytm SDK).
+ */
+function isIframeContext() {
+  try {
+    return window.self !== window.top;
+  } catch {
+    // Cross-origin frame — definitely an iframe
+    return true;
+  }
 }
 
 // ── Listen for messages from background / vault UI ─────────────────────────
@@ -35,13 +138,11 @@ function isPaymentPage() {
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   switch (msg.type) {
     case 'VAULT_READY':
-      // Background confirmed vault is available — attach field observers
       adapter.attachFieldObservers(adapter.getFormFields());
       sendResponse({ ok: true });
       break;
 
     case 'VAULT_UNLOCKED':
-      // Vault unlocked; if autofill is ready, pre-lock fields visually
       if (msg.payload?.autofillReady) {
         adapter.markFieldsAutofillReady(adapter.getFormFields());
       }
@@ -49,9 +150,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       break;
 
     case 'INJECT_MASKED':
-      // Vault has prepared masked tokens — write them into the merchant form
       adapter.injectMaskedInputs(msg.payload ?? []);
-      // Confirm back to background
       chrome.runtime.sendMessage({
         type:    'vault_data_filled',
         payload: { fields: (msg.payload ?? []).map(t => t.fieldName) },
@@ -59,7 +158,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       sendResponse({ ok: true });
       break;
   }
-  return true; // keep channel open for async responses
+  return true;
 });
 
 // ── Init ───────────────────────────────────────────────────────────────────
@@ -67,20 +166,24 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 async function init() {
   if (!isPaymentPage()) return;
 
-  const fields      = adapter.getFormFields();
+  const inIframe     = isIframeContext();
+  const fields       = adapter.getFormFields();
   const hasSavedCards = await checkHasSavedCards();
 
-  console.log('[SecureVault] Payment page detected —',
-    fields.length, 'field(s), hasSavedCards:', hasSavedCards);
+  console.log(
+    `[SecureVault] Payment page detected — ${fields.length} field(s),`,
+    `iframe: ${inIframe}, hasSavedCards: ${hasSavedCards},`,
+    `origin: ${location.origin}`
+  );
 
-  // Send vault_requested to background, including autofill context
   const resp = await chrome.runtime.sendMessage({
     type:    'vault_requested',
     payload: {
       origin:       location.origin,
       fieldsFound:  fields.length,
       hasSavedCards,
-      pageTitle:    document.title,
+      isIframe:     inIframe,
+      pageTitle:    inIframe ? `[iframe] ${document.title}` : document.title,
     },
   }).catch(() => null);
 
@@ -90,13 +193,16 @@ async function init() {
 }
 
 /**
- * Checks chrome.storage.local for any saved vault profiles
- * so the background can advertise autofill availability to the UI.
+ * Checks chrome.storage.local for saved vault cards.
+ * Uses sv_cards_v1 — the correct key written by VaultStorage.saveAllCards().
+ *
+ * NOTE: The old key sv_profiles_v1 is NOT used here. It was the incorrect
+ * key from an earlier implementation and has been removed.
  */
 async function checkHasSavedCards() {
   try {
-    const result = await chrome.storage.local.get('sv_profiles_v1');
-    return Array.isArray(result['sv_profiles_v1']) && result['sv_profiles_v1'].length > 0;
+    const result = await chrome.storage.local.get('sv_cards_v1');
+    return Array.isArray(result['sv_cards_v1']) && result['sv_cards_v1'].length > 0;
   } catch {
     return false;
   }
@@ -105,6 +211,7 @@ async function checkHasSavedCards() {
 // ── DOM observer for SPAs / dynamically injected forms ─────────────────────
 
 let initiated = false;
+
 const domObserver = new MutationObserver(() => {
   if (initiated) return;
   if (adapter.getFormFields().length > 0) {
@@ -114,7 +221,16 @@ const domObserver = new MutationObserver(() => {
   }
 });
 
-domObserver.observe(document.body, { childList: true, subtree: true });
+// Observe body for dynamically injected payment forms (SPAs, lazy-loaded
+// checkout steps, React/Vue/Angular rendered forms)
+if (document.body) {
+  domObserver.observe(document.body, { childList: true, subtree: true });
+} else {
+  // Body not yet available — wait for DOMContentLoaded
+  document.addEventListener('DOMContentLoaded', () => {
+    domObserver.observe(document.body, { childList: true, subtree: true });
+  }, { once: true });
+}
 
-// Run immediately for static pages
+// Run immediately for static / server-rendered pages
 init().then(() => { initiated = true; });

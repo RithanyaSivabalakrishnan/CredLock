@@ -73,7 +73,7 @@
   ],
 
   "oauth2": {
-    "client_id": "604479240373-o9h5fm18bilhnc39316b6dd3e4chg736.apps.googleusercontent.com",
+    "client_id": "128586974344-crls3f5vn6h8q1peephv2m0fh8856kl3.apps.googleusercontent.com",
     "scopes": ["openid", "email", "profile"]
   }
 }
