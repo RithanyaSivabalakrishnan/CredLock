@@ -107,7 +107,6 @@ function isPaymentPage() {
   const hostname = location.hostname.toLowerCase();
   if (PAYMENT_DOMAINS.has(hostname)) return true;
 
-  // Subdomain match: e.g. secure.paytm.in, api.razorpay.com
   for (const domain of PAYMENT_DOMAINS) {
     if (hostname.endsWith('.' + domain) || hostname === domain) return true;
   }
@@ -116,8 +115,15 @@ function isPaymentPage() {
   const url = location.href;
   if (PAYMENT_URL_PATTERNS.some(p => p.test(url))) return true;
 
-  // 3. Field presence fallback (works for SPAs that inject forms dynamically)
-  return adapter.getFormFields().length > 0;
+  // 3. Field presence fallback — only if the page has meaningful payment‑like fields
+  const fields = adapter.getFormFields();
+  if (fields.length > 0) {
+    return fields.some(f => {
+      const text = f.fieldId.toLowerCase();
+      return /password|pass|otp|pin|cvv|cvc|card|account|bill|auth/.test(text);
+    });
+  }
+  return false;
 }
 
 /**
