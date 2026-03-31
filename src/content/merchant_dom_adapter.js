@@ -116,55 +116,56 @@ export class MerchantDomAdapter {
    *
    * @returns {{ element: HTMLInputElement, fieldId: string }[]}
    */
-getFormFields() {
-  const seen = new Set();
-  const found = [];
+  getFormFields() {
+    const seen = new Set();
+    const found = [];
 
-  // ⭐ SHADOW DOM RECURSIVE SCANNER ⭐
-  function scanShadow(root) {
-    // Scan inputs in this shadow root
-    Array.from(root.querySelectorAll('input')).forEach(el => {
-      if (seen.has(el)) return;
-      seen.add(el);
+    // ⭐ SHADOW DOM RECURSIVE SCANNER ⭐
+    function scanShadow(root) {
+      // Scan inputs in this shadow root
+      Array.from(root.querySelectorAll('input')).forEach(el => {
+        if (seen.has(el)) return;
+        seen.add(el);
       
-      // Check if it's a payment field
-      if (this.#isPaymentField(el)) {
-        const fieldId = getFieldId(el);
-        found.push({ element: el, fieldId });
-      }
-    });
+        // Check if it's a payment field
+        if (this.#isPaymentField(el)) {
+          const fieldId = getFieldId(el);
+          found.push({ element: el, fieldId });
+        }
+      });
 
-    // Recurse into nested shadow roots
-    Array.from(root.querySelectorAll('*')).forEach(el => {
+      // Recurse into nested shadow roots
+      Array.from(root.querySelectorAll('*')).forEach(el => {
+        if (el.shadowRoot) scanShadow.call(this, el.shadowRoot);
+      });
+    }
+
+    // Start scanning from document AND all shadow roots
+    scanShadow.call(this, document);
+    document.querySelectorAll('*').forEach(el => {
       if (el.shadowRoot) scanShadow.call(this, el.shadowRoot);
     });
+
+    if (window.DEBUG_CREDLOCK) {
+      console.log('[CredLock] Found', found.length, 'fields in Shadow DOM');
+    }
+
+    return found;
   }
 
-  // Start scanning from document AND all shadow roots
-  scanShadow.call(this, document);
-  document.querySelectorAll('*').forEach(el => {
-    if (el.shadowRoot) scanShadow.call(this, el.shadowRoot);
-  });
-
-  if (window.DEBUG_CREDLOCK) {
-    console.log('[CredLock] Found', found.length, 'fields in Shadow DOM');
+  // ⭐ HELPER - Payment field detector ⭐
+  #isPaymentField(el) {
+    const text = getFieldId(el);
+    const selectors = [
+      'cardnumber', 'expirationdate', 'securitycode', 'name',
+      'card', 'cc', 'cvv', 'cvc', 'exp', 'expiry'
+    ];
+    return selectors.some(s => text.includes(s));
   }
 
-  return found;
-}
-
-// ⭐ HELPER - Payment field detector ⭐
-#isPaymentField(el) {
-  const text = getFieldId(el);
-  const selectors = [
-    'cardnumber', 'expirationdate', 'securitycode', 'name',
-    'card', 'cc', 'cvv', 'cvc', 'exp', 'expiry'
-  ];
-  return selectors.some(s => text.includes(s));
-}
-
-    // 1. First, scan with strong card/payment-style selectors
-    for (const selector of FIELD_SELECTORS.slice(0, -1)) {
+  /*  // 1. First, scan with strong card/payment-style selectors
+    for (const selector of FIELD_SELECTORS.slice(0, -1))
+    {
       document.querySelectorAll(selector).forEach(el => {
         if (seen.has(el)) return;
         seen.add(el);
@@ -196,7 +197,7 @@ getFormFields() {
     }
 
     return found;
-  }
+  }*/
 
   /**
    * Writes a masked placeholder value (e.g. "•••• •••• •••• 4242") into
@@ -205,7 +206,8 @@ getFormFields() {
    * @param {string} fieldId — internal field identifier (canonical name)
    * @param {string} maskedValue — masked / tokenised string
    */
-  setMaskedValue(fieldId, maskedValue) {
+  setMaskedValue(fieldId, maskedValue) 
+  {
     const el = this.#findElementByFieldId(fieldId);
     if (!el) {
       console.warn("[MerchantDomAdapter] setMaskedValue: field not found:", fieldId);
@@ -220,7 +222,8 @@ getFormFields() {
    *
    * @param {{ fieldName: string, maskedValue: string }[]} cardData
    */
-  setAutofilledData(cardData = []) {
+  setAutofilledData(cardData = []) 
+  {
     for (const { fieldName, maskedValue } of cardData) {
       if (!ALLOWED_FIELDS.has(fieldName.toLowerCase())) {
         console.warn("[MerchantDomAdapter] setAutofilledData: field not allowed:", fieldName);
@@ -236,7 +239,8 @@ getFormFields() {
    *
    * @param {{ fieldName: string, maskedValue: string }[]} tokens
    */
-  injectMaskedInputs(tokens = []) {
+  injectMaskedInputs(tokens = []) 
+  {
     this.setAutofilledData(tokens);
   }
 
@@ -246,7 +250,8 @@ getFormFields() {
    *
    * @param {{ element: HTMLInputElement, fieldId: string }[]} fields
    */
-  attachFieldObservers(fields) {
+  attachFieldObservers(fields) 
+  {
     for (const { element, fieldId } of fields) {
       if (this.#observedFields.has(element)) continue;
       this.#observedFields.set(element, fieldId);
@@ -257,7 +262,8 @@ getFormFields() {
   /**
    * Marks fields as autofill-ready — applies a subtle green highlight.
    */
-  markFieldsAutofillReady(fields) {
+  markFieldsAutofillReady(fields) 
+  {
     for (const { element } of fields) {
       element.style.borderColor = "#00e676";
       element.style.boxShadow = "0 0 0 2px rgba(0,230,118,0.18)";
@@ -271,7 +277,8 @@ getFormFields() {
    * Finds a form element on the merchant page by field identifier.
    * Tries data-vault-field, autocomplete, name, and id attributes.
    */
-  #findElementByFieldId(fieldId) {
+  #findElementByFieldId(fieldId) 
+  {
     const id = fieldId.toLowerCase();
 
     const selectors = [
@@ -298,7 +305,8 @@ getFormFields() {
    * Uses the native HTMLInputElement value setter so React/Vue/Angular
    * synthetic event systems receive the change correctly.
    */
-  #nativeSet(el, value) {
+  #nativeSet(el, value)
+  {
     const descriptor = Object.getOwnPropertyDescriptor(
       window.HTMLInputElement.prototype,
       "value"
@@ -313,7 +321,8 @@ getFormFields() {
   }
 
   /** Overlays a security badge and makes the field read-only for direct input. */
-  #overlayField(field) {
+  #overlayField(field)
+  {
     if (field.parentNode?.classList?.contains("sv-field-wrapper")) return;
 
     const wrapper = document.createElement("div");
