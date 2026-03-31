@@ -13,6 +13,10 @@ import { ALLOWED_FIELDS } from "../background/sandbox_policy.js";
 
 const FIELD_SELECTORS = [
   // Card / payment fields (strong indicators)
+  'input[id="cardnumber"]',
+  'input[id="expirationdate"]', 
+  'input[id="securitycode"]',
+  'input[id="name"]',
   'input[name*="verification"]',
   'input[name*="creditcardverification"]', 
   'input[name*="cvvnumber"]',
@@ -47,6 +51,9 @@ const FIELD_SELECTORS = [
 
 // Regexes to match banking / login / payment‑like fields
 const SENSITIVE_FIELD_REGEXES = [
+  /cardnumber/i,
+  /expirationdate|expiry|exp|mm.?yy/i, 
+  /securitycode|cvv|cvc/i,
   /verification/i,
   /creditcardverification/i,
   /password/i,
@@ -112,6 +119,14 @@ export class MerchantDomAdapter {
   getFormFields() {
     const seen = new Set();
     const found = [];
+
+    if (window.DEBUG_CREDLOCK) {
+    console.log('[CredLock DEBUG] ALL inputs found:', 
+      Array.from(document.querySelectorAll('input')).map(i => ({
+        id: i.id, name: i.name, placeholder: i.placeholder, type: i.type
+      }))
+    );
+}
 
     // 1. First, scan with strong card/payment-style selectors
     for (const selector of FIELD_SELECTORS.slice(0, -1)) {
