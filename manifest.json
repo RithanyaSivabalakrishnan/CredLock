@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "CredLock",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "OS-inspired sandboxed payment vault — Shadow DOM isolation, AES-256-GCM, WASM crypto.",
 
   "icons": {
@@ -25,12 +25,13 @@
   },
 
   "background": {
-    "service_worker": "dist/background.js"
+    "service_worker": "dist/background.js",
+    "type": "module"
   },
 
   "content_scripts": [
     {
-      "matches": ["https://codepen.io/quinlo/pen/YONMEa*", "<all_urls>"],
+      "matches": ["<all_urls>"],
       "js": ["dist/content.js"],
       "run_at": "document_idle",
       "all_frames": true
@@ -48,8 +49,7 @@
 
   "host_permissions": [
     "https://*/*",
-    "http://*/*",
-    "https://codepen.io/*"
+    "http://*/*"
   ],
 
   "content_security_policy": {
