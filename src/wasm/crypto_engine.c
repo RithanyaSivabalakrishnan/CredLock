@@ -1,6 +1,6 @@
 /*
  * crypto_engine.c
- * SecureVault — AES-256-GCM Encryption Engine
+ * CredLock — AES-256-GCM Encryption Engine
  *
  * Implements:
  *   - AES-256 key schedule

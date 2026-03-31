@@ -179,7 +179,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 async function init() {
   const isPay = isPaymentPage();
   if (window.DEBUG_CREDLOCK) {
-    console.log(`[SecureVault] isPaymentPage() → ${isPay}, origin: ${location.origin}`);
+    console.log(`[CredLock] isPaymentPage() → ${isPay}, origin: ${location.origin}`);
   }
 
   if (!isPay) return;
@@ -189,7 +189,7 @@ async function init() {
   const hasSavedCards = await checkHasSavedCards();
 
   console.log(
-    `[SecureVault] Payment page detected — ${fields.length} field(s),`,
+    `[CredLock] Payment page detected — ${fields.length} field(s),`,
     `iframe: ${inIframe}, hasSavedCards: ${hasSavedCards},`,
     `origin: ${location.origin}`
   );

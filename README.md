@@ -1,4 +1,4 @@
-# SecureVault — OS-Inspired Sandboxed Payment Vault
+# CredLock — OS-Inspired Sandboxed Payment Vault
 
 A Chrome Extension that mimics **OS-level process isolation and memory encryption**
 to protect payment card data from malicious merchant pages.
@@ -30,7 +30,7 @@ to protect payment card data from malicious merchant pages.
 
 ### OS Analogies
 
-| OS Concept                     | SecureVault Module                              |
+| OS Concept                     | CredLock Module                              |
 |--------------------------------|-------------------------------------------------|
 | Init process (`systemd`)       | `extension_main.js`                             |
 | Process manager                | `extension_host.js`                             |
@@ -147,7 +147,7 @@ emcc crypto_engine.c key_derivation.c \
 3. Enable **Developer mode** (top-right toggle).
 4. Click **Load unpacked** → select the `dist/` folder.
 5. Navigate to a checkout or banking page.
-6. Click the **SecureVault ⬡** icon in the toolbar.
+6. Click the **CredLock ⬡** icon in the toolbar.
 
 ### OAuth Setup
 

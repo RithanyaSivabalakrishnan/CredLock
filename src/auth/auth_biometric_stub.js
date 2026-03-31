@@ -15,7 +15,7 @@
 
 const CRED_ID_KEY = 'sv_webauthn_cred_id';
 const RP_ID       = chrome.runtime.id;  // Extension origin as relying party
-const RP_NAME     = 'SecureVault';
+const RP_NAME     = 'CredLock';
 
 export class AuthBiometricStub {
 

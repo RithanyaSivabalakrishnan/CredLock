@@ -13,20 +13,20 @@ const policy = new SandboxPolicy();
 // ── Lifecycle ──────────────────────────────────────────────────────────────
 
 chrome.runtime.onInstalled.addListener(async (details) => {
-  console.log('[SecureVault] Installed:', details.reason);
+  console.log('[CredLock] Installed:', details.reason);
   await host.init();
   await policy.loadDefaults();
 });
 
 chrome.runtime.onStartup.addListener(async () => {
-  console.log('[SecureVault] Browser startup — re-initialising host');
+  console.log('[CredLock] Browser startup — re-initialising host');
   await host.init();
 });
 
 // ── Side-panel wiring ──────────────────────────────────────────────────────
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false })
-  .catch(err => console.warn('[SecureVault] sidePanel API:', err));
+  .catch(err => console.warn('[CredLock] sidePanel API:', err));
 
 chrome.action.onClicked.addListener(async (tab) => {
   // Toggle between popup (default) and side-panel based on policy

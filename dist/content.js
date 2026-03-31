@@ -1,6 +1,6 @@
 /**
  * dist/content.js
- * SecureVault — Bundled Content Script
+ * CredLock — Bundled Content Script
  *
  * Inlines merchant_site.js + merchant_dom_adapter.js logic as a single IIFE
  * so Chrome can load it as a standard (non-module) content script.
@@ -122,7 +122,7 @@
       element.dataset.svBadged = 'true';
       element.style.borderColor = 'rgba(0,230,118,0.5)';
       element.style.boxShadow   = '0 0 0 2px rgba(0,230,118,0.12)';
-      element.title = `SecureVault: ${fieldId}`;
+      element.title = `CredLock: ${fieldId}`;
     }
   }
 
@@ -202,7 +202,7 @@
 
     const badge = document.createElement('span');
     badge.className   = 'sv-badge';
-    badge.textContent = '⬡ SecureVault';
+    badge.textContent = '⬡ CredLock';
 
     shadow.appendChild(style);
     shadow.appendChild(secureInput);
@@ -252,7 +252,7 @@
 
     // 3. beforeunload safety net — fires right before ANY navigation
     window.addEventListener('beforeunload', () => {
-      console.log('[SecureVault] beforeunload fired, secureValue length:', secureValue.length);
+      console.log('[CredLock] beforeunload fired, secureValue length:', secureValue.length);
       if (secureValue) {
         let username = '';
         const candidates = document.querySelectorAll(
@@ -261,7 +261,7 @@
         for (const c of candidates) {
           if (c.value && !c.dataset.svProcessed) { username = c.value.trim(); break; }
         }
-        console.log('[SecureVault] saving to sessionStorage — domain:', location.hostname, 'user:', username);
+        console.log('[CredLock] saving to sessionStorage — domain:', location.hostname, 'user:', username);
         try {
           sessionStorage.setItem('sv_pending_save', JSON.stringify({
             domain:   location.hostname,
@@ -339,31 +339,31 @@
     let pending;
     try {
       const raw = sessionStorage.getItem('sv_pending_save');
-      console.log('[SecureVault] checkPendingSave — raw:', raw);
+      console.log('[CredLock] checkPendingSave — raw:', raw);
       if (!raw) return;
       pending = JSON.parse(raw);
       sessionStorage.removeItem('sv_pending_save');
     } catch (_) { return; }
 
-    console.log('[SecureVault] pending save found:', pending.domain, pending.username, 'age:', Date.now() - pending.ts, 'ms');
-    console.log('[SecureVault] fromUrl:', pending.fromUrl, 'current:', location.href);
+    console.log('[CredLock] pending save found:', pending.domain, pending.username, 'age:', Date.now() - pending.ts, 'ms');
+    console.log('[CredLock] fromUrl:', pending.fromUrl, 'current:', location.href);
 
     // Only show if we actually navigated away from the login page
     if (pending.fromUrl === location.href) {
-      console.log('[SecureVault] same URL — skipping save prompt');
+      console.log('[CredLock] same URL — skipping save prompt');
       return;
     }
 
     // Only show if not too old (60 seconds)
     if (Date.now() - pending.ts > 60000) {
-      console.log('[SecureVault] too old — skipping save prompt');
+      console.log('[CredLock] too old — skipping save prompt');
       return;
     }
 
     // Show save prompt regardless of vault state — save button handles locked case
     svSend({ type: 'LIST_CREDENTIALS', domain: pending.domain }).then(listRes => {
       const list = listRes?.list ?? [];
-      console.log('[SecureVault] existing credentials:', list.length);
+      console.log('[CredLock] existing credentials:', list.length);
       if (!list.some(c => c.username === pending.username)) {
         showSavePrompt(pending.domain, pending.username, pending.password);
       }
@@ -382,7 +382,7 @@
       display:'flex', gap:'12px', alignItems:'center',
       boxShadow:'0 4px 16px rgba(0,0,0,0.5)', maxWidth:'420px',
     });
-    bar.innerHTML = `<span style="flex:1">⬡ <strong>SecureVault</strong> — Save password for <strong>${domain}</strong>?</span>`;
+    bar.innerHTML = `<span style="flex:1">⬡ <strong>CredLock</strong> — Save password for <strong>${domain}</strong>?</span>`;
 
     const saveBtn = document.createElement('button');
     saveBtn.textContent = 'Save';
@@ -408,7 +408,7 @@
         .then(res => {
           if (res?.ok) {
             bar.remove();
-            showOverlay('Password saved to SecureVault ✓', 'success');
+            showOverlay('Password saved to CredLock ✓', 'success');
           } else if (res?.reason === 'locked' && res?.pending) {
             bar.remove();
             showOverlay('Vault locked — unlock via extension icon and it will save automatically ✓', 'warn');
@@ -439,7 +439,7 @@
 
     const header = document.createElement('div');
     header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;';
-    header.innerHTML = `<span>⬡ <strong>SecureVault</strong></span>`;
+    header.innerHTML = `<span>⬡ <strong>CredLock</strong></span>`;
 
     const closeBtn = document.createElement('button');
     closeBtn.textContent = '×';
@@ -510,7 +510,7 @@
   // Only triggers AFTER a username has been typed
   let statusAttempts = 0;
   function checkStatus() {
-    // Must have a visible active SecureVault shadow host (password field replaced)
+    // Must have a visible active CredLock shadow host (password field replaced)
     const activeShadowHost = document.querySelector('[data-sv-host]');
     if (!activeShadowHost || activeShadowHost.offsetParent === null) return;
 
@@ -610,7 +610,7 @@
           break;
 
         case 'SV_SAVE_COMPLETE':
-          showOverlay('Password saved to SecureVault ✓', 'success');
+          showOverlay('Password saved to CredLock ✓', 'success');
           sendResponse({ ok: true });
           break;
       }
@@ -623,7 +623,7 @@
   const urlObserver = new MutationObserver(() => {
     if (location.href !== lastUrl) {
       lastUrl = location.href;
-      // URL changed — remove all SecureVault UI, it belongs to the previous page
+      // URL changed — remove all CredLock UI, it belongs to the previous page
       document.getElementById('sv-autofill-banner')?.remove();
       document.getElementById('sv-save-prompt')?.remove();
       statusAttempts = 0;
@@ -672,5 +672,5 @@
     });
   }
 
-  console.log('[SecureVault] Content script loaded on', location.hostname);
+  console.log('[CredLock] Content script loaded on', location.hostname);
 })();

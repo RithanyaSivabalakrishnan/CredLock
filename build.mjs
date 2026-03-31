@@ -1,6 +1,6 @@
 /**
  * build.mjs
- * SecureVault — esbuild-based extension bundler.
+ * CredLock — esbuild-based extension bundler.
  *
  * Outputs (all under dist/):
  *   background.js        — MV3 service worker
@@ -182,7 +182,7 @@ function copyStatics() {
 
 // ── Main ──────────────────────────────────────────────────────────────────
 
-console.log('\nSecureVault build starting…\n');
+console.log('\nCredLock build starting…\n');
 ensureDirs();
 
 if (watch) {

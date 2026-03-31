@@ -186,7 +186,7 @@ export class MerchantDomAdapter {
 
   /**
    * Attaches observers to detected payment fields and overlays a
-   * "Secured by SecureVault" badge on each.
+   * "Secured by CredLock" badge on each.
    *
    * @param {{ element: HTMLInputElement, fieldId: string }[]} fields
    */
@@ -205,7 +205,7 @@ export class MerchantDomAdapter {
     for (const { element } of fields) {
       element.style.borderColor = "#00e676";
       element.style.boxShadow = "0 0 0 2px rgba(0,230,118,0.18)";
-      element.title = "SecureVault autofill ready";
+      element.title = "CredLock autofill ready";
     }
   }
 
@@ -265,7 +265,7 @@ export class MerchantDomAdapter {
     wrapper.style.cssText = `position:relative;display:inline-block;width:${field.offsetWidth || 200}px;`;
 
     const badge = document.createElement("span");
-    badge.textContent = "🔒 SecureVault";
+    badge.textContent = "🔒 CredLock";
     badge.style.cssText = [
       "position:absolute",
       "top:50%",

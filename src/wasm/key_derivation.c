@@ -1,6 +1,6 @@
 /*
  * key_derivation.c
- * SecureVault — Key Derivation Module
+ * CredLock — Key Derivation Module
  *
  * Implements:
  *   - SHA-256 (full NIST-compliant implementation)

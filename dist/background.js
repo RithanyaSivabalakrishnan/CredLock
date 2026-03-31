@@ -1,6 +1,6 @@
 /**
  * dist/background.js
- * SecureVault — Bundled Background Service Worker
+ * CredLock — Bundled Background Service Worker
  *
  * This is the single entry point loaded by Chrome as the service worker.
  * It inlines the core logic from:
@@ -90,7 +90,7 @@ function isUnlocked() { return _sessionKey !== null; }
 
 async function unlockVault(token) {
   _sessionKey = await deriveKeyFromToken(token);
-  console.log('[SecureVault] Vault unlocked');
+  console.log('[CredLock] Vault unlocked');
 
   // Auto-save any credential that was pending when vault was locked
   try {
@@ -117,17 +117,17 @@ async function unlockVault(token) {
         await saveCards(cards);
         // Notify all tabs that the pending save completed
         broadcastToTabs({ type: 'SV_SAVE_COMPLETE', domain });
-        console.log('[SecureVault] Auto-saved pending credential for', domain);
+        console.log('[CredLock] Auto-saved pending credential for', domain);
       }
     }
   } catch (err) {
-    console.warn('[SecureVault] Auto-save failed:', err.message);
+    console.warn('[CredLock] Auto-save failed:', err.message);
   }
 }
 
 function lockVault() {
   _sessionKey = null;
-  console.log('[SecureVault] Vault locked');
+  console.log('[CredLock] Vault locked');
 }
 
 async function svEncrypt(plaintext) {
@@ -415,7 +415,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           sendResponse({ ok: false, reason: 'unknown_message_type' });
       }
     } catch (err) {
-      console.error('[SecureVault] Background error:', err);
+      console.error('[CredLock] Background error:', err);
       sendResponse({ ok: false, reason: err.message });
     }
   })();
@@ -433,12 +433,12 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 // ── Lifecycle ────────────────────────────────────────────────────────────────
 
 chrome.runtime.onInstalled.addListener(({ reason }) => {
-  console.log('[SecureVault] Installed —', reason);
+  console.log('[CredLock] Installed —', reason);
   broadcastToTabs({ type: 'VAULT_LOCKED' });
 });
 
 chrome.runtime.onStartup.addListener(() => {
-  console.log('[SecureVault] Startup — vault is locked');
+  console.log('[CredLock] Startup — vault is locked');
   broadcastToTabs({ type: 'VAULT_LOCKED' });
 });
 
@@ -450,4 +450,4 @@ chrome.runtime.onSuspend?.addListener(() => {
 
 chrome.sidePanel?.setPanelBehavior({ openPanelOnActionClick: false }).catch(() => {});
 
-console.log('[SecureVault] Background service worker running');
+console.log('[CredLock] Background service worker running');

@@ -1,6 +1,6 @@
 /*
  * test_crypto.c
- * SecureVault — Unit Tests for crypto_engine.c + key_derivation.c
+ * CredLock — Unit Tests for crypto_engine.c + key_derivation.c
  *
  * Build and run (no Emscripten needed):
  *   make test-c
@@ -91,7 +91,7 @@ static void test_gcm(void) {
     printf("\n[AES-256-GCM]\n");
     uint8_t key[SV_KEY_SIZE]; memset(key, 0x00, SV_KEY_SIZE);
     uint8_t iv[SV_IV_SIZE];   memset(iv,  0x00, SV_IV_SIZE);
-    const char *plaintext = "SecureVault test payload";
+    const char *plaintext = "CredLock test payload";
     size_t plen = strlen(plaintext);
     uint8_t cipher[64]={0}, tag[SV_TAG_SIZE], decrypted[64]={0};
     crypto_context_t ctx = { key, iv, NULL, 0 };
@@ -176,7 +176,7 @@ static void test_vault_workflow(void) {
 }
 
 int main(void) {
-    printf("SecureVault Crypto Tests\n");
+    printf("CredLock Crypto Tests\n");
     printf("============================================\n");
     test_sha256();
     test_pbkdf2();
