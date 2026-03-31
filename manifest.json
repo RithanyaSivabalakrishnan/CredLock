@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "SecureVault",
+  "name": "CredLock",
   "version": "2.0.0",
   "description": "OS-inspired sandboxed payment vault — Shadow DOM isolation, AES-256-GCM, WASM crypto.",
 
@@ -73,7 +73,7 @@
   ],
 
   "oauth2": {
-    "client_id": "128586974344-crls3f5vn6h8q1peephv2m0fh8856kl3.apps.googleusercontent.com",
+    "client_id": "128586974344-cc894pi46kgiol3mr2u6i99kk95greg6.apps.googleusercontent.com",
     "scopes": ["openid", "email", "profile"]
   }
 }
