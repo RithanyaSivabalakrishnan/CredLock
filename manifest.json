@@ -30,7 +30,7 @@
 
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": ["https://codepen.io/quinlo/pen/YONMEa*", "<all_urls>"],
       "js": ["dist/content.js"],
       "run_at": "document_idle",
       "all_frames": true
@@ -48,7 +48,8 @@
 
   "host_permissions": [
     "https://*/*",
-    "http://*/*"
+    "http://*/*",
+    "https://codepen.io/*"
   ],
 
   "content_security_policy": {
