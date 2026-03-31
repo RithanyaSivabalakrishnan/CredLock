@@ -116,16 +116,51 @@ export class MerchantDomAdapter {
    *
    * @returns {{ element: HTMLInputElement, fieldId: string }[]}
    */
-  getFormFields() {
-    const seen = new Set();
-    const found = [];
+getFormFields() {
+  const seen = new Set();
+  const found = [];
 
-    if (window.DEBUG_CREDLOCK) {
-    console.log('[CredLock DEBUG] ALL inputs found:', 
-      Array.from(document.querySelectorAll('input')).map(i => ({
-        id: i.id, name: i.name, placeholder: i.placeholder, type: i.type
-      }))
-    );
+  // ⭐ SHADOW DOM RECURSIVE SCANNER ⭐
+  function scanShadow(root) {
+    // Scan inputs in this shadow root
+    Array.from(root.querySelectorAll('input')).forEach(el => {
+      if (seen.has(el)) return;
+      seen.add(el);
+      
+      // Check if it's a payment field
+      if (this.#isPaymentField(el)) {
+        const fieldId = getFieldId(el);
+        found.push({ element: el, fieldId });
+      }
+    });
+
+    // Recurse into nested shadow roots
+    Array.from(root.querySelectorAll('*')).forEach(el => {
+      if (el.shadowRoot) scanShadow.call(this, el.shadowRoot);
+    });
+  }
+
+  // Start scanning from document AND all shadow roots
+  scanShadow.call(this, document);
+  document.querySelectorAll('*').forEach(el => {
+    if (el.shadowRoot) scanShadow.call(this, el.shadowRoot);
+  });
+
+  if (window.DEBUG_CREDLOCK) {
+    console.log('[CredLock] Found', found.length, 'fields in Shadow DOM');
+  }
+
+  return found;
+}
+
+// ⭐ HELPER - Payment field detector ⭐
+#isPaymentField(el) {
+  const text = getFieldId(el);
+  const selectors = [
+    'cardnumber', 'expirationdate', 'securitycode', 'name',
+    'card', 'cc', 'cvv', 'cvc', 'exp', 'expiry'
+  ];
+  return selectors.some(s => text.includes(s));
 }
 
     // 1. First, scan with strong card/payment-style selectors
