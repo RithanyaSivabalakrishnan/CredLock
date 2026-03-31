@@ -252,3 +252,61 @@ if (document.body) {
 
 // Run immediately for static / server-rendered pages
 init().then(() => { initiated = true; });
+
+// ═══════════════════════════════════════════════════════════════════
+// CREDLOCK: AMAZON IFRAME FIELD DETECTION (NEW)
+// ═══════════════════════════════════════════════════════════════════
+
+// 1. Enhanced field detection (call this from your existing MutationObserver/scanner)
+function findFields() {
+  console.log('[CredLock] 🔍 Scanning for fields...');
+  
+  // Regular inputs (non-Amazon)
+  const inputs = document.querySelectorAll(`
+    input[type="tel"], input[type="number"], input[data-stripe],
+    input[name*="card"], input[name*="cc"], input[id*="card"],
+    input[placeholder*="card"], input[maxlength="16"], input[maxlength="19"]
+  `);
+  
+  // Amazon secure iframes
+  const amazonIframes = document.querySelectorAll(`
+    iframe[src*="secure-fields"], iframe[src*="amazon.dev"],
+    iframe[src*="payments.amazon"], iframe[title*="card"]
+  `);
+  
+  console.log('[CredLock] Regular inputs:', inputs.length, 'Amazon iframes:', amazonIframes.length);
+  
+  // Send to iframes
+  amazonIframes.forEach((iframe, i) => {
+    try {
+      iframe.contentWindow.postMessage({
+        action: 'credlock-detect-fields',
+        from: 'main-page',
+        timestamp: Date.now()
+      }, '*');
+      console.log(`[CredLock] Sent to iframe ${i}:`, iframe.src.slice(0,50));
+    } catch(e) {
+      console.log(`[CredLock] iframe ${i} blocked`);
+    }
+  });
+  
+  return Array.from(inputs);
+}
+
+// 2. Listen for iframe responses
+window.addEventListener('message', (e) => {
+  if (e.data.action === 'credlock-fields-response') {
+    console.log('[CredLock] 🎉 IFRAME FIELDS:', e.data.fields);
+    e.data.fields.forEach(field => {
+      if (field.type === 'card' || field.type === 'cvv') {
+        console.log(`[CredLock] ${field.type.toUpperCase()}: ${field.value.slice(0,8)}...`);
+      }
+    });
+  }
+});
+
+// 3. AUTO-SCAN every 2 seconds + on DOM changes
+setInterval(findFields, 2000);
+const observer = new MutationObserver(findFields);
+observer.observe(document.body, { childList: true, subtree: true });
+console.log('[CredLock] ✅ Iframe detection ACTIVE');
