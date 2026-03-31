@@ -120,34 +120,42 @@ export class MerchantDomAdapter {
     const seen = new Set();
     const found = [];
 
-    // ⭐ SHADOW DOM RECURSIVE SCANNER ⭐
-    function scanShadow(root) {
-      // Scan inputs in this shadow root
-      Array.from(root.querySelectorAll('input')).forEach(el => {
+    // ⭐ HYBRID: FIELD_SELECTORS + SHADOW DOM ⭐
+    function scanWithSelectors(root) {
+      // 1. Strong selectors FIRST
+      for (const selector of FIELD_SELECTORS.slice(0, -1)) {
+        Array.from(root.querySelectorAll(selector)).forEach(el => {
+          if (seen.has(el)) return;
+          if (isLikelySensitiveField(el)) {
+            seen.add(el);
+            const fieldId = getFieldId(el);
+            found.push({ element: el, fieldId });
+          }
+        });
+      }
+
+      // 2. Fallback generic inputs
+      const fallbackSelector = FIELD_SELECTORS[FIELD_SELECTORS.length - 1];
+      Array.from(root.querySelectorAll(fallbackSelector)).forEach(el => {
         if (seen.has(el)) return;
-        seen.add(el);
-      
-        // Check if it's a payment field
-        if (this.#isPaymentField(el)) {
+        if (isLikelySensitiveField(el)) {
+          seen.add(el);
           const fieldId = getFieldId(el);
           found.push({ element: el, fieldId });
         }
       });
-
-      // Recurse into nested shadow roots
-      Array.from(root.querySelectorAll('*')).forEach(el => {
-        if (el.shadowRoot) scanShadow.call(this, el.shadowRoot);
-      });
     }
 
-    // Start scanning from document AND all shadow roots
-    scanShadow.call(this, document);
+    // Scan document + ALL shadow roots
+    scanWithSelectors(document);
     document.querySelectorAll('*').forEach(el => {
-      if (el.shadowRoot) scanShadow.call(this, el.shadowRoot);
+      if (el.shadowRoot) scanWithSelectors(el.shadowRoot);
     });
 
+    // Debug
     if (window.DEBUG_CREDLOCK) {
-      console.log('[CredLock] Found', found.length, 'fields in Shadow DOM');
+      console.log(`[CredLock] Found ${found.length} fields (Shadow DOM scanned)`);
+      console.log('Fields:', found.map(f => f.fieldId));
     }
 
     return found;
