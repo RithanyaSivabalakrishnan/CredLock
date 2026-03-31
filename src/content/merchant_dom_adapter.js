@@ -13,6 +13,10 @@ import { ALLOWED_FIELDS } from "../background/sandbox_policy.js";
 
 const FIELD_SELECTORS = [
   // Card / payment fields (strong indicators)
+  'input[name*="verification"]',
+  'input[name*="creditcardverification"]', 
+  'input[name*="cvvnumber"]',
+  'input[name*="cardVerification"]',
   'input[autocomplete="cc-number"]',
   'input[autocomplete="cc-exp"]',
   'input[autocomplete="cc-exp-month"]',
@@ -43,6 +47,8 @@ const FIELD_SELECTORS = [
 
 // Regexes to match banking / login / payment‑like fields
 const SENSITIVE_FIELD_REGEXES = [
+  /verification/i,
+  /creditcardverification/i,
   /password/i,
   /pwd/i,
   /pass/i,
