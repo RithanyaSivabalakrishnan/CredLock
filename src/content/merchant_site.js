@@ -14,7 +14,7 @@
  *  4. URL patterns expanded to cover Amazon /gp/buy/, /ap/, Indian banks
  */
 
-import { MerchantDomAdapter } from './merchant_dom_adapter.js';
+import { MerchantDomAdapter } from "./merchant_dom_adapter.js";
 
 const adapter = new MerchantDomAdapter();
 
@@ -34,65 +34,72 @@ const PAYMENT_URL_PATTERNS = [
   /\/cart/i,
   /\/buy\//i,
   /\/purchase/i,
-  /\/gp\/buy\//i,           // Amazon: /gp/buy/addressselect/, /gp/buy/payselect/
-  /\/ap\/signin/i,          // Amazon: account/payment signin flow
-  /\/ap\/cvf/i,             // Amazon: card verification flow
-  /processTransaction/i,    // Paytm gateway
-  /theia\//i,               // Paytm Theia SDK
+  /\/gp\/buy\//i, // Amazon: /gp/buy/addressselect/, /gp/buy/payselect/
+  /\/ap\/signin/i, // Amazon: account/payment signin flow
+  /\/ap\/cvf/i, // Amazon: card verification flow
+  /processTransaction/i, // Paytm gateway
+  /theia\//i, // Paytm Theia SDK
   /\/transaction/i,
   /\/secure\//i,
   /netbanking/i,
   /ibanking/i,
   /onlinebanking/i,
-  /retail\/login/i,         // SBI retail banking
+  /retail\/login/i, // SBI retail banking
 ];
 
 /**
  * Domains that are inherently payment/banking domains — the entire site
  * is a payment context regardless of URL path.
- * Used when URL patterns don't match (e.g. netbanking portals with
- * opaque paths like /netbanking/ or /retail/).
  */
 const PAYMENT_DOMAINS = new Set([
-  'securegw.paytm.in', 'securegw-stage.paytm.in',
-  'razorpay.com', 'api.razorpay.com',
-  'stripe.com', 'js.stripe.com',
-  'paypal.com', 'www.paypal.com',
-  'payu.in', 'secure.payu.in',
-  'payumoney.com', 'www.payumoney.com',
-  'ccavenue.com', 'www.ccavenue.com',
-  'billdesk.com', 'pgi.billdesk.com',
-  'cashfree.com', 'api.cashfree.com',
-  'easebuzz.in',
-  'instamojo.com',
-  'zaakpay.com',
-  'adyen.com',
-  'checkout.com',
-  'braintreegateway.com',
-  'squareup.com',
-  'klarna.com',
-  'afterpay.com',
-  'affirm.com',
+  "securegw.paytm.in",
+  "securegw-stage.paytm.in",
+  "razorpay.com",
+  "api.razorpay.com",
+  "stripe.com",
+  "js.stripe.com",
+  "paypal.com",
+  "www.paypal.com",
+  "payu.in",
+  "secure.payu.in",
+  "payumoney.com",
+  "www.payumoney.com",
+  "ccavenue.com",
+  "www.ccavenue.com",
+  "billdesk.com",
+  "pgi.billdesk.com",
+  "cashfree.com",
+  "api.cashfree.com",
+  "easebuzz.in",
+  "instamojo.com",
+  "zaakpay.com",
+  "adyen.com",
+  "checkout.com",
+  "braintreegateway.com",
+  "squareup.com",
+  "klarna.com",
+  "afterpay.com",
+  "affirm.com",
   // Indian banks (all paths are payment-relevant)
-  'netbanking.hdfcbank.com',
-  'ibanking.icicibank.com',
-  'netpay.axisbank.co.in',
-  'retail.onlinesbi.sbi',
-  'www.onlinesbi.com',
-  'netbanking.kotak.com',
-  'netbanking.yesbank.in',
-  'indusnet.indusind.com',
-  'netbanking.idfcfirstbank.com',
-  'netbanking.federalbank.co.in',
-  'rblbank.com',
-  'netbanking.canarabank.in',
-  'netbanking.unionbankofindia.co.in',
+  "netbanking.hdfcbank.com",
+  "ibanking.icicibank.com",
+  "netpay.axisbank.co.in",
+  "retail.onlinesbi.sbi",
+  "www.onlinesbi.com",
+  "netbanking.kotak.com",
+  "netbanking.yesbank.in",
+  "indusnet.indusind.com",
+  "netbanking.idfcfirstbank.com",
+  "netbanking.federalbank.co.in",
+  "rblbank.com",
+  "netbanking.canarabank.in",
+  "netbanking.unionbankofindia.co.in",
   // 3DS / ACS domains
-  'acs.mastercard.com',
-  'verified-by-visa.com',
-  'safekey.com',
-  '3ds.websdk.amazon.dev',
-  '3dsecure.io',
+  "acs.mastercard.com",
+  "verified-by-visa.com",
+  "safekey.com",
+  "3ds.websdk.amazon.dev",
+  "3dsecure.io",
 ]);
 
 /**
@@ -100,7 +107,7 @@ const PAYMENT_DOMAINS = new Set([
  * using three detection methods in priority order:
  *  1. Known payment domain (fastest, most reliable)
  *  2. URL path/query pattern match
- *  3. Presence of payment-related form fields in the DOM
+ *  3. Presence of meaningful payment/login-like form fields
  */
 function isPaymentPage() {
   // 1. Domain-based detection
@@ -108,7 +115,7 @@ function isPaymentPage() {
   if (PAYMENT_DOMAINS.has(hostname)) return true;
 
   for (const domain of PAYMENT_DOMAINS) {
-    if (hostname.endsWith('.' + domain) || hostname === domain) return true;
+    if (hostname.endsWith("." + domain) || hostname === domain) return true;
   }
 
   // 2. URL pattern match
@@ -120,7 +127,7 @@ function isPaymentPage() {
   if (fields.length > 0) {
     return fields.some(f => {
       const text = f.fieldId.toLowerCase();
-      return /password|pass|otp|pin|cvv|cvc|card|account|bill|auth/.test(text);
+      return /password|pass|otp|pin|cvv|cvc|card|account|bill|auth|login|netbanking/i;
     });
   }
   return false;
@@ -143,22 +150,22 @@ function isIframeContext() {
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   switch (msg.type) {
-    case 'VAULT_READY':
+    case "VAULT_READY":
       adapter.attachFieldObservers(adapter.getFormFields());
       sendResponse({ ok: true });
       break;
 
-    case 'VAULT_UNLOCKED':
+    case "VAULT_UNLOCKED":
       if (msg.payload?.autofillReady) {
         adapter.markFieldsAutofillReady(adapter.getFormFields());
       }
       sendResponse({ ok: true });
       break;
 
-    case 'INJECT_MASKED':
+    case "INJECT_MASKED":
       adapter.injectMaskedInputs(msg.payload ?? []);
       chrome.runtime.sendMessage({
-        type:    'vault_data_filled',
+        type: "vault_data_filled",
         payload: { fields: (msg.payload ?? []).map(t => t.fieldName) },
       }).catch(() => {});
       sendResponse({ ok: true });
@@ -170,10 +177,15 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 // ── Init ───────────────────────────────────────────────────────────────────
 
 async function init() {
-  if (!isPaymentPage()) return;
+  const isPay = isPaymentPage();
+  if (window.DEBUG_CREDLOCK) {
+    console.log(`[SecureVault] isPaymentPage() → ${isPay}, origin: ${location.origin}`);
+  }
 
-  const inIframe     = isIframeContext();
-  const fields       = adapter.getFormFields();
+  if (!isPay) return;
+
+  const inIframe = isIframeContext();
+  const fields = adapter.getFormFields();
   const hasSavedCards = await checkHasSavedCards();
 
   console.log(
@@ -183,13 +195,13 @@ async function init() {
   );
 
   const resp = await chrome.runtime.sendMessage({
-    type:    'vault_requested',
+    type: "vault_requested",
     payload: {
-      origin:       location.origin,
-      fieldsFound:  fields.length,
+      origin: location.origin,
+      fieldsFound: fields.length,
       hasSavedCards,
-      isIframe:     inIframe,
-      pageTitle:    inIframe ? `[iframe] ${document.title}` : document.title,
+      isIframe: inIframe,
+      pageTitle: inIframe ? `[iframe] ${document.title}` : document.title,
     },
   }).catch(() => null);
 
@@ -201,14 +213,14 @@ async function init() {
 /**
  * Checks chrome.storage.local for saved vault cards.
  * Uses sv_cards_v1 — the correct key written by VaultStorage.saveAllCards().
- *
- * NOTE: The old key sv_profiles_v1 is NOT used here. It was the incorrect
- * key from an earlier implementation and has been removed.
  */
 async function checkHasSavedCards() {
   try {
-    const result = await chrome.storage.local.get('sv_cards_v1');
-    return Array.isArray(result['sv_cards_v1']) && result['sv_cards_v1'].length > 0;
+    const result = await chrome.storage.local.get("sv_cards_v1");
+    return (
+      Array.isArray(result["sv_cards_v1"]) &&
+      result["sv_cards_v1"].length > 0
+    );
   } catch {
     return false;
   }
