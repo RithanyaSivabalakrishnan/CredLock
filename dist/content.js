@@ -38,7 +38,27 @@
     document.getElementById('sv-autofill-banner')?.remove();
     document.getElementById('sv-save-prompt')?.remove();
   }
-
+  let bannerShownForUrl = null;
+  
+  document.addEventListener('sv-fill', e => {
+    const pw = e.detail?.password;
+    if (!pw) return;
+    // Try all active shadow hosts
+    document.querySelectorAll('[data-sv-host]').forEach(host => {
+      const shadow = host.shadowRoot;  // won't work — closed mode
+      // fallback: re-dispatch on the originalInput
+    });
+    // Primary path: find the original hidden input and fill it directly
+    const pwInput = document.querySelector('input[type="password"][data-sv-processed]');
+    if (pwInput) {
+      nativeFill(pwInput, pw);
+    }
+    if (e.detail.username) {
+      const userEl = findUsernameField();
+      if (userEl) nativeFill(userEl, e.detail.username);
+    }
+    showOverlay('✓ Password autofilled', 'success');
+  });
   // ═══════════════════════════════════════════════════════════════════════════
   // FIELD DETECTION  — the heart of the fix
   // ═══════════════════════════════════════════════════════════════════════════
@@ -127,6 +147,18 @@
 
     // ── CVV / CVC / Security Code ────────────────────────────────────────────
     { type: 'cvv', priority: 4, selectors: [
+      'input[data-field="cvv"]',
+      'input[type="tel"][name*="cvv" i]',
+      'input[type="tel"][id*="cvv" i]',
+      'input[type="tel"][id*="csc" i]',
+      'input[type="tel"][id*="security" i]',
+      'input[id*="addCreditCard" i][id*="erif" i]',   // Amazon: addCreditCardVerificationNumber
+      'input[name*="verif" i][type="tel"]',
+      'input[aria-label*="cvv" i]',
+      'input[aria-label*="security code" i]',
+      'input[aria-label*="cvc" i]',
+      'input[maxlength="3"][type="tel"]',
+      'input[maxlength="4"][type="tel"]',
       'input[autocomplete="cc-csc"]',
       'input[name="cvv"]',
       'input[name="cvc"]',
@@ -501,18 +533,14 @@
     document.addEventListener('sv-fill', e => {
       const pw = e.detail?.password;
       if (!pw) return;
+      // Sync into THIS shadow input
       const ns = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
       if (ns?.set) ns.set.call(secureInput, pw);
       else secureInput.value = pw;
       secureValue = pw;
       secureInput.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
       nativeFill(originalInput, pw);
-
-      if (e.detail.username) {
-        const userEl = findUsernameField();
-        if (userEl) nativeFill(userEl, e.detail.username);
-      }
-      showOverlay('✓ Password autofilled', 'success');
+      // Username and overlay handled by the module-level listener
     });
 
     try {
@@ -523,14 +551,15 @@
   }
 
   function findUsernameField() {
-    const usernameSelectors = FIELD_RULES.find(r => r.type === 'netbanking-username')?.selectors ?? [];
-    for (const sel of usernameSelectors) {
-      try {
-        const el = document.querySelector(sel);
-        if (el && !el.dataset.svProcessed && el.offsetParent !== null) return el;
-      } catch (_) {}
-    }
-    return null;
+  const usernameSelectors = FIELD_RULES.find(r => r.type === 'netbanking-username')?.selectors ?? [];
+  for (const sel of usernameSelectors) {
+    try {
+      const el = document.querySelector(sel);
+      // Removed !el.dataset.svProcessed — username fields may carry this flag
+      if (el && el.offsetParent !== null) return el;
+    } catch (_) {}
+  }
+  return null;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -543,34 +572,41 @@
   }
 
   function persistPendingSave(password, originalInput) {
-    const userEl   = findUsernameField();
-    const username = userEl?.value?.trim() || originalInput?.getAttribute('name') || '';
-    try {
-      sessionStorage.setItem('sv_pending_save', JSON.stringify({
-        domain: location.hostname, username, password,
-        fromUrl: location.href, ts: Date.now(),
-      }));
-    } catch (_) {}
-  }
+  const userEl   = findUsernameField();
+  const username = userEl?.value?.trim() || originalInput?.getAttribute('name') || '';
+  const key = 'sv_pending_save_' + btoa(location.hostname).replace(/=/g,'').slice(0,12)
+              + '_' + btoa(username || 'anon').replace(/=/g,'').slice(0,8);
+  try {
+    sessionStorage.setItem(key, JSON.stringify({
+      domain: location.hostname, username, password,
+      fromUrl: location.href, ts: Date.now(),
+      key,
+    }));
+  } catch (_) {}
+}
 
   function checkPendingSave() {
-    let pending;
-    try {
-      const raw = sessionStorage.getItem('sv_pending_save');
-      if (!raw) return;
-      pending = JSON.parse(raw);
-      sessionStorage.removeItem('sv_pending_save');
-    } catch (_) { return; }
+    const PREFIX = 'sv_pending_save_';
+    const keys = Object.keys(sessionStorage).filter(k => k.startsWith(PREFIX));
+    for (const key of keys) {
+      let pending;
+      try {
+        const raw = sessionStorage.getItem(key);
+        if (!raw) continue;
+        pending = JSON.parse(raw);
+        sessionStorage.removeItem(key);
+      } catch (_) { continue; }
 
-    if (pending.fromUrl === location.href) return;
-    if (Date.now() - pending.ts > 60000) return;
+      if (pending.fromUrl === location.href) continue;
+      if (Date.now() - pending.ts > 60000) continue;
 
-    svSend({ type: 'LIST_CREDENTIALS', domain: pending.domain }).then(listRes => {
-      const list = listRes?.list ?? [];
-      if (!list.some(c => c.username === pending.username)) {
-        showSavePrompt(pending.domain, pending.username, pending.password);
-      }
-    });
+      svSend({ type: 'LIST_CREDENTIALS', domain: pending.domain }).then(listRes => {
+        const list = listRes?.list ?? [];
+        if (!list.some(c => c.username === pending.username)) {
+          showSavePrompt(pending.domain, pending.username, pending.password);
+        }
+      });
+    }
   }
 
   function showSavePrompt(domain, username, password) {
@@ -621,6 +657,8 @@
 
   function showAutofillBanner(credentials) {
     if (document.getElementById('sv-autofill-banner')) return;
+    if (bannerShownForUrl === location.href) return;   // already offered on this page
+    bannerShownForUrl = location.href;
     const banner = document.createElement('div');
     banner.id = 'sv-autofill-banner';
     Object.assign(banner.style, {
@@ -865,7 +903,9 @@
         } catch (_) {}
       }
     }
-    if (found) setTimeout(checkForSavedCredentials, 500);
+    if (found && !document.getElementById('sv-autofill-banner') && bannerShownForUrl !== location.href) {
+      setTimeout(checkForSavedCredentials, 500);
+    }
   });
 
   // ── SPA URL watcher ──────────────────────────────────────────────────────────
@@ -875,6 +915,7 @@
       lastUrl = location.href;
       document.getElementById('sv-autofill-banner')?.remove();
       document.getElementById('sv-save-prompt')?.remove();
+      bannerShownForUrl = null;   // ← add this
       setTimeout(init, 400);
     }
   });
