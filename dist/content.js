@@ -44,96 +44,24 @@
 
   // ── DOM adapter ────────────────────────────────────────────────────────────
 
-  const FIELD_RULES = [
-  { type: 'card-number', priority: 1, selectors: [
+  const FIELD_SELECTORS = [
     'input[autocomplete="cc-number"]',
-    'input[name="cardNumber"]', 'input[name="card_number"]',
-    'input[name="card-number"]', 'input[name*="cardnumber" i]',
-    'input[name*="card_no" i]', 'input[name*="pan" i]',
-    'input[id*="cardNumber" i]', 'input[id*="card_number" i]',
-    'input[id*="card-number" i]', 'input[id*="cardno" i]',
-    'input[placeholder*="card number" i]', 'input[placeholder*="card no" i]',
-    'input[placeholder*="card num" i]', 'input[placeholder*="1234" i]',
-    'input[data-vault-field="card-number"]', 'input[data-field="number"]',
-    'input[type="tel"][name*="card" i]', 'input[type="tel"][id*="card" i]',
-    'input[type="tel"][placeholder*="card" i]',
-    'input[type="text"][name*="card" i]',
-    // Stripe / Razorpay iframe field names
-    'input[name="cardnumber"]', 'input[name="number"]',
-    'input[data-elements-stable-field-name="cardNumber"]',
-  ]},
-  { type: 'cardholder-name', priority: 2, selectors: [
-    'input[autocomplete="cc-name"]',
-    'input[name="cardHolder"]', 'input[name="card_holder"]',
-    'input[name="cardholder"]', 'input[name="holder_name"]',
-    'input[name="holderName"]', 'input[name="name_on_card" i]',
-    'input[name*="holder" i]', 'input[id*="cardholder" i]',
-    'input[id*="holder" i]', 'input[id*="nameOnCard" i]',
-    'input[placeholder*="card holder" i]', 'input[placeholder*="cardholder" i]',
-    'input[placeholder*="name on card" i]', 'input[placeholder*="name on the card" i]',
-    'input[placeholder*="full name" i]',
-    'input[data-vault-field="cardholder-name"]', 'input[data-field="name"]',
-  ]},
-  { type: 'expiry', priority: 3, selectors: [
-    'input[autocomplete="cc-exp"]', 'input[autocomplete="cc-exp-month"]',
-    'input[autocomplete="cc-exp-year"]',
-    'input[name="expiry"]', 'input[name="expDate"]', 'input[name="exp_date"]',
-    'input[name="expiryDate"]', 'input[name="expiration"]',
-    'input[name="expiry_date"]', 'input[name*="expir" i]',
-    'input[name*="exp_month" i]', 'input[name*="exp_year" i]',
-    'input[id*="expiry" i]', 'input[id*="expDate" i]', 'input[id*="expiration" i]',
-    'input[placeholder*="mm/yy" i]', 'input[placeholder*="mm / yy" i]',
-    'input[placeholder*="mm/yyyy" i]', 'input[placeholder*="expiry" i]',
-    'input[placeholder*="expiration" i]', 'input[placeholder*="valid" i]',
-    'input[data-vault-field="expiry"]', 'input[data-field="expiry"]',
-  ]},
-  { type: 'cvv', priority: 4, selectors: [
+    'input[autocomplete="cc-exp"]',
     'input[autocomplete="cc-csc"]',
-    'input[name="cvv"]', 'input[name="cvc"]', 'input[name="cvv2"]',
-    'input[name="cvc2"]', 'input[name="securityCode"]',
-    'input[name="security_code"]', 'input[name*="cvv" i]',
-    'input[name*="cvc" i]', 'input[name*="csc" i]',
-    'input[id*="cvv" i]', 'input[id*="cvc" i]', 'input[id*="securityCode" i]',
-    'input[placeholder*="cvv" i]', 'input[placeholder*="cvc" i]',
-    'input[placeholder*="security code" i]', 'input[placeholder*="3 digit" i]',
-    'input[placeholder*="4 digit" i]',
-    'input[data-vault-field="cvv"]', 'input[data-field="cvv"]',
-    // maxlength heuristic for standalone CVV inputs
-    'input[maxlength="3"][type="tel"]', 'input[maxlength="4"][type="tel"]',
-    'input[maxlength="3"][type="number"]', 'input[maxlength="4"][type="number"]',
-  ]},
-  { type: 'upi-id', priority: 5, selectors: [
-    'input[name*="upi" i]', 'input[id*="upi" i]',
-    'input[placeholder*="upi" i]', 'input[placeholder*="vpa" i]',
-    'input[placeholder*="virtual payment" i]',
-    'input[placeholder*="@" i][name*="upi" i]',
-    'input[data-vault-field="upi-id"]',
-  ]},
-  { type: 'netbanking-username', priority: 6, selectors: [
-    'input[name="userId"]', 'input[name="user_id"]', 'input[name="userName"]',
-    'input[name="loginId"]', 'input[name="customerId"]', 'input[name="cid"]',
-    'input[name*="userid" i]', 'input[name*="username" i]',
-    'input[name*="loginid" i]', 'input[name*="custid" i]',
-    'input[id*="userid" i]', 'input[id*="username" i]', 'input[id*="loginid" i]',
-    'input[placeholder*="user id" i]', 'input[placeholder*="username" i]',
-    'input[placeholder*="customer id" i]', 'input[placeholder*="login id" i]',
-    'input[type="text"][autocomplete="username"]',
-    'input[type="email"][autocomplete="username"]',
-  ]},
-  { type: 'netbanking-password', priority: 7, selectors: [
+    'input[name*="card"][type="text"]',
+    'input[name*="card"][type="tel"]',
+    'input[name*="cardnumber"]',
+    'input[name*="cvv"]',
+    'input[name*="cvc"]',
+    'input[name*="expiry"]',
+    'input[name*="otp"]',
+    'input[placeholder*="Card number" i]',
+    'input[placeholder*="CVV" i]',
+    'input[data-vault-field]',
+    // Also catch standard password fields for login pages
     'input[type="password"]',
-    'input[autocomplete="current-password"]', 'input[autocomplete="new-password"]',
-    'input[name*="password" i]', 'input[name*="passwd" i]',
-    'input[id*="password" i]', 'input[placeholder*="password" i]',
-    'input[id*="pwd" i]', 'input[name*="pwd" i]',
-  ]},
-  { type: 'otp', priority: 8, selectors: [
-    'input[name*="otp" i]', 'input[id*="otp" i]',
-    'input[placeholder*="otp" i]', 'input[placeholder*="one time" i]',
-    'input[placeholder*="verification code" i]', 'input[placeholder*="enter code" i]',
-    'input[autocomplete="one-time-code"]', 'input[data-vault-field="otp"]',
-  ]},
-];
+    'input[autocomplete="current-password"]',
+  ].join(',');
 
   function getFieldId(el) {
     return (
@@ -204,58 +132,6 @@
       element.style.boxShadow   = '0 0 0 2px rgba(0,230,118,0.2)';
     }
   }
-  function scanSameOriginIframes() {
-  try {
-    document.querySelectorAll('iframe').forEach(iframe => {
-      try {
-        const iDoc = iframe.contentDocument || iframe.contentWindow?.document;
-        if (!iDoc || iDoc === document) return;
-        // Scan fields inside this same-origin iframe
-        const seen = new Set();
-        FIELD_RULES.flatMap(r => r.selectors).forEach(sel => {
-          try {
-            iDoc.querySelectorAll(sel).forEach(el => {
-              if (seen.has(el) || isSvInternal(el)) return;
-              seen.add(el);
-              const type = detectFieldType(el);
-              if (type && !el.dataset.svScanned) {
-                el.dataset.svScanned = 'true';
-                if (type === 'netbanking-password') {
-                  replaceWithSecureInput(el);
-                } else {
-                  el.style.borderColor = 'rgba(0,230,118,0.5)';
-                  el.style.boxShadow   = '0 0 0 2px rgba(0,230,118,0.12)';
-                  el.title = `CredLock: ${type}`;
-                }
-              }
-            });
-          } catch (_) {}
-        });
-        // Watch for dynamically added fields inside same-origin iframes
-        const iObs = new MutationObserver(() => {
-          FIELD_RULES.flatMap(r => r.selectors).forEach(sel => {
-            try {
-              iDoc.querySelectorAll(sel).forEach(el => {
-                if (el.dataset.svScanned || isSvInternal(el)) return;
-                el.dataset.svScanned = 'true';
-                const type = detectFieldType(el);
-                if (!type) return;
-                if (type === 'netbanking-password') replaceWithSecureInput(el);
-                else {
-                  el.style.borderColor = 'rgba(0,230,118,0.5)';
-                  el.style.boxShadow   = '0 0 0 2px rgba(0,230,118,0.12)';
-                }
-              });
-            } catch (_) {}
-          });
-        });
-        iObs.observe(iDoc.documentElement, { childList: true, subtree: true });
-      } catch (_) {
-        // Cross-origin iframe — Chrome injects content script separately
-      }
-    });
-  } catch (_) {}
-}
 
   // ── Shadow DOM secure input (for password fields on login pages) ───────────
 
@@ -679,12 +555,7 @@
     if (cardFields.length > 0) {
       attachBadges(cardFields);
     }
-    // Scan same-origin iframes for payment fields
-    scanSameOriginIframes();
-    // Re-scan when iframes finish loading (handles lazy-loaded payment iframes)
-    document.querySelectorAll('iframe').forEach(iframe => {
-      iframe.addEventListener('load', () => scanSameOriginIframes(), { once: true });
-    });
+
     if (!isPaymentPage() && fields.length === 0) return;
 
     await svSend({
@@ -770,7 +641,7 @@
 
   // ── MutationObserver for SPAs ───────────────────────────────────────────────
 
-  const observer = new MutationObserver(mutations => {
+  const observer = new MutationObserver(() => {
     document.querySelectorAll(FIELD_SELECTORS).forEach(el => {
       if (!el.dataset.svProcessed && !isSvInternal(el)) {
         const fieldId = getFieldId(el);
@@ -781,18 +652,6 @@
         }
       }
     });
-    // Re-scan if any new iframes were added
-    for (const m of mutations) {
-      for (const node of m.addedNodes) {
-        if (node.nodeType !== 1) continue;
-        if (node.tagName === 'IFRAME') {
-          node.addEventListener('load', () => scanSameOriginIframes(), { once: true });
-        }
-        node.querySelectorAll?.('iframe').forEach(iframe => {
-          iframe.addEventListener('load', () => scanSameOriginIframes(), { once: true });
-        });
-      }
-    }
   });
 
   // Re-check vault status when tab regains focus
